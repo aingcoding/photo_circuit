@@ -5,7 +5,7 @@ circuit_netlist = []
 for item in temporary:
     # 1. สร้าง Dictionary สำหรับอุปกรณ์ตัวนี้ตัวเดียว
     component_data = {}
-    component_data["comp_type_1"] = item[0]
+    component_data["comp_type_2"] = item[0]
     component_data["comp_name"] = item[1]
     component_data["comp_unit"] = item[2]
     component_data["comp_conn1"] = item[3]
