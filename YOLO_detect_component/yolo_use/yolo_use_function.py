@@ -2,7 +2,7 @@ from ultralytics import YOLO
 
 # โหลดโมเดลแค่ครั้งเดียวตอนเริ่มโปรแกรม (จะได้ไม่ช้า)
 # แนะนำให้ใช้ Absolute Path (Path เต็ม) เพื่อป้องกันปัญหาหาไฟล์ไม่เจอ
-model = YOLO(r'C:\Users\ACER\OneDrive\Desktop\AI_project\runs\classify\my_electronic_model6\weights\best.pt') 
+model = YOLO(r"C:\Users\ACER\OneDrive\Desktop\AI_project\my_electronic_model\weights\best.pt") 
 
 def predict_electronic_symbol(image_path):
     """
@@ -21,7 +21,7 @@ def predict_electronic_symbol(image_path):
     return "Unknown", 0.0
 
 # --- ตัวอย่างการเรียกใช้งาน ---
-my_img = r"C:\Users\ACER\OneDrive\Desktop\AI_project\symbol\train\Ammeter\21.bmp"
+my_img = r"C:\Users\ACER\Downloads\Screenshot 2026-01-27 231447.png"
 symbol_name, confidence = predict_electronic_symbol(my_img)
 
 if confidence > 0.8:
