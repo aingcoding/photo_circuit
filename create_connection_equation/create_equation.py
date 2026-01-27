@@ -7,7 +7,7 @@ for item in temporary:
     component_data = {}
     component_data["comp_type"] = item[0]
     component_data["comp_name"] = item[1]
-    component_data["comp_value"] = item[2]
+    component_data["comp_value_1"] = item[2]
     component_data["comp_unit"] = item[3]
     component_data["comp_conn1"] = item[4]
     component_data["comp_conn2"] = item[5]
