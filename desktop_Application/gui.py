@@ -5,7 +5,7 @@ import cv2
 import os
 import threading
 import sys
-import re # ใช้สำหรับจัดรูปแบบข้อความผลลัพธ์
+import re 
 
 # --- Path Setup ---
 def get_base_path():
@@ -39,7 +39,6 @@ class CircuitApp(ctk.CTk):
         self.title("Circuit Recognition & Analysis System Pro")
         
         # 1. SET FULL SCREEN STARTUP
-        # ใช้ after เพื่อให้มั่นใจว่า window init เสร็จก่อนสั่งขยาย
         self.after(0, lambda: self.state('zoomed')) 
 
         # Initialize Engines
@@ -53,6 +52,7 @@ class CircuitApp(ctk.CTk):
 
         self.current_image_path = None
         self.netlist_rows = [] 
+        self.result_widgets = [] # เก็บ Widget ของผลลัพธ์เพื่อลบภายหลัง
         self.setup_ui()
 
     def setup_ui(self):
@@ -89,15 +89,12 @@ class CircuitApp(ctk.CTk):
         self.lbl_img_raw = self.create_image_label(self.tab_visual, "Cleaned Circuit", 1)
         self.lbl_img_schematic = self.create_image_label(self.tab_visual, "Node Analysis", 2)
 
-        # === TAB 2: Analysis (Layout Optimization) ===
+        # === TAB 2: Analysis ===
         self.setup_analysis_tab()
 
     def setup_analysis_tab(self):
-        # 2. MAXIMIZE SPACE LAYOUT
-        # ปรับสัดส่วน Column: ให้ Tools (ขวา) กว้างกว่ารูปนิดหน่อย หรือเท่ากัน (Weight 1:1) 
-        # เพื่อให้ Editor มีที่เยอะขึ้น
-        self.tab_analysis.grid_columnconfigure(0, weight=1) # รูปภาพ
-        self.tab_analysis.grid_columnconfigure(1, weight=1) # Tools Area
+        self.tab_analysis.grid_columnconfigure(0, weight=1) 
+        self.tab_analysis.grid_columnconfigure(1, weight=1) 
         self.tab_analysis.grid_rowconfigure(0, weight=1)
 
         # --- Left Side: Final Image ---
@@ -110,28 +107,22 @@ class CircuitApp(ctk.CTk):
         self.lbl_img_analysis_view = ctk.CTkLabel(self.frame_analysis_img, text="No Image processed")
         self.lbl_img_analysis_view.pack(expand=True, fill="both")
 
-        # --- Right Side: Editor & Results (Full Height) ---
+        # --- Right Side: Editor & Results ---
         self.frame_analysis_tools = ctk.CTkFrame(self.tab_analysis, fg_color="transparent")
         self.frame_analysis_tools.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         
-        # Grid Configuration ภายใน Tools Frame
-        # Row 0: Header Editor
-        # Row 1: Editor Scroll (Weight 1 = ยืด)
-        # Row 2: Actions
-        # Row 3: Header Results
-        # Row 4: Result Box (Weight 1 = ยืด)
         self.frame_analysis_tools.grid_columnconfigure(0, weight=1)
-        self.frame_analysis_tools.grid_rowconfigure(1, weight=1) # ให้ Netlist Editor ยืด
-        self.frame_analysis_tools.grid_rowconfigure(4, weight=1) # ให้ Result Box ยืด
+        self.frame_analysis_tools.grid_rowconfigure(1, weight=1) # Editor ยืด
+        self.frame_analysis_tools.grid_rowconfigure(4, weight=1) # Results ยืด
 
         # 1. Netlist Editor Section
         self.lbl_editor_title = ctk.CTkLabel(self.frame_analysis_tools, text="📝 Netlist Editor", font=("Arial", 18, "bold"))
         self.lbl_editor_title.grid(row=0, column=0, sticky="w", pady=(0, 5))
 
         self.editor_scroll = ctk.CTkScrollableFrame(self.frame_analysis_tools, label_text="Component List")
-        self.editor_scroll.grid(row=1, column=0, sticky="nsew") # sticky="nsew" สำคัญมาก เพื่อให้เต็มพื้นที่
+        self.editor_scroll.grid(row=1, column=0, sticky="nsew") 
         
-        # Headers
+        # Headers Editor
         headers = ["Comp", "Node +", "Node -", "Value", "Status"]
         for idx, h in enumerate(headers):
             ctk.CTkLabel(self.editor_scroll, text=h, font=("Arial", 12, "bold"), text_color="#3498DB").grid(row=0, column=idx, padx=5, pady=5)
@@ -147,19 +138,17 @@ class CircuitApp(ctk.CTk):
         self.btn_calc.pack(side="right", padx=5, expand=True, fill="x")
 
         # 3. Results Section
-        self.lbl_result_title = ctk.CTkLabel(self.frame_analysis_tools, text="📊 Analysis Output", font=("Arial", 18, "bold"))
+        self.lbl_result_title = ctk.CTkLabel(self.frame_analysis_tools, text="📊 Analysis Results", font=("Arial", 18, "bold"))
         self.lbl_result_title.grid(row=3, column=0, sticky="w", pady=(10, 5))
         
-        # 3. PRETTIER RESULT BOX
-        self.txt_result = ctk.CTkTextbox(self.frame_analysis_tools, font=("Consolas", 16), fg_color="#17202A", text_color="#ECF0F1")
-        self.txt_result.grid(row=4, column=0, sticky="nsew", pady=5)
+        # ใช้ ScrollableFrame แทน Textbox เพื่อทำเป็นตาราง
+        self.result_scroll = ctk.CTkScrollableFrame(self.frame_analysis_tools, label_text="Output Parameters")
+        self.result_scroll.grid(row=4, column=0, sticky="nsew", pady=5)
         
-        # กำหนด Tags สำหรับทำสีข้อความ (Syntax Highlighting)
-        # (โค้ดใหม่ที่ถูกต้อง)
-        self.txt_result._textbox.tag_config("header", foreground="#3498DB", font=("Consolas", 16, "bold"))
-        self.txt_result._textbox.tag_config("value", foreground="#2ECC71", font=("Consolas", 16, "bold"))
-        self.txt_result._textbox.tag_config("error", foreground="#E74C3C", font=("Consolas", 16, "bold"))
-        self.txt_result._textbox.tag_config("normal", foreground="#BDC3C7")
+        # ตั้งค่า Column Grid ของ Result
+        self.result_scroll.grid_columnconfigure(0, weight=2) # Parameter Name (กว้างหน่อย)
+        self.result_scroll.grid_columnconfigure(1, weight=2) # Value (กว้างหน่อย)
+        self.result_scroll.grid_columnconfigure(2, weight=1) # Unit (แคบหน่อย)
 
     # ==========================
     # Editor Logic
@@ -233,7 +222,7 @@ class CircuitApp(ctk.CTk):
                 self.add_netlist_row(parts[0], parts[1], parts[2], "?", is_ai_generated=True)
 
     # ==========================
-    # Logic & Pretty Print
+    # Logic & Pretty Result Display
     # ==========================
     def run_lcapy_analysis(self):
         lines = []
@@ -244,43 +233,102 @@ class CircuitApp(ctk.CTk):
         
         netlist_str = "\n".join(lines)
         
-        self.display_result_formatted("⏳ Calculating...", "normal")
-
+        self.clear_results()
+        
         def run_task():
             try:
                 result_str = analyze_netlist(netlist_str)
-                self.after(0, lambda: self.display_result_formatted(result_str))
+                self.after(0, lambda: self.populate_results(result_str))
             except Exception as e:
-                self.after(0, lambda: self.display_result_formatted(f"Error:\n{e}", "error"))
+                self.after(0, lambda: self.populate_results(f"Error:\n{e}", is_error=True))
 
         threading.Thread(target=run_task, daemon=True).start()
 
-    def display_result_formatted(self, text, default_tag="normal"):
-        self.txt_result.configure(state="normal")
-        self.txt_result.delete("0.0", "end")
+    def clear_results(self):
+        for widget in self.result_widgets:
+            widget.destroy()
+        self.result_widgets.clear()
         
-        # ใช้ ._textbox.insert แทน self.txt_result.insert เพื่อความชัวร์เรื่อง Tags
-        if default_tag == "error":
-            self.txt_result._textbox.insert("0.0", text, "error")
-        else:
-            lines = text.split('\n')
-            for line in lines:
-                if not line.strip():
-                    self.txt_result._textbox.insert("end", "\n")
-                    continue
-                
-                if line.endswith(':'): 
-                    self.txt_result._textbox.insert("end", line + "\n", "header")
-                elif "=" in line: 
-                    parts = line.split('=')
-                    self.txt_result._textbox.insert("end", parts[0] + "=", "normal")
-                    self.txt_result._textbox.insert("end", parts[1] + "\n", "value") 
-                elif any(x in line for x in ["Error", "Exception"]):
-                    self.txt_result._textbox.insert("end", line + "\n", "error")
-                else:
-                    self.txt_result._textbox.insert("end", line + "\n", "normal")
+        headers = ["Parameter / Node", "Value", "Unit"]
+        for idx, h in enumerate(headers):
+            lbl = ctk.CTkLabel(self.result_scroll, text=h, font=("Arial", 12, "bold"), text_color="#2ECC71")
+            lbl.grid(row=0, column=idx, padx=5, pady=5, sticky="ew")
+            self.result_widgets.append(lbl)
 
-        self.txt_result.configure(state="disabled")
+    def populate_results(self, text, is_error=False):
+        self.clear_results()
+        
+        if is_error:
+            lbl = ctk.CTkLabel(self.result_scroll, text=text, text_color="#E74C3C", justify="left")
+            lbl.grid(row=1, column=0, columnspan=3, sticky="w", padx=10, pady=5)
+            self.result_widgets.append(lbl)
+            return
+
+        lines = text.split('\n')
+        row_idx = 1
+        
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+            
+            # --- FILTER SECTION: กรองบรรทัดที่ไม่ต้องการออก ---
+            # 1. ข้ามบรรทัด Processing Netlist
+            if "Processing Netlist" in line:
+                continue
+            
+            # 2. ข้ามบรรทัดที่เป็น Netlist (เช่น C1 1 2 4.7)
+            # หลักการ: ถ้าไม่มีเครื่องหมาย '=' หรือ ':' และมีส่วนประกอบมากกว่า 2 ส่วน -> ให้ถือว่าเป็น Netlist และข้ามไป
+            if "=" not in line and ":" not in line:
+                if len(line.split()) >= 3: 
+                    continue
+            # ------------------------------------------------
+            
+            # Parsing Logic (เฉพาะบรรทัดที่เป็นผลลัพธ์)
+            match = re.match(r"(.+?)\s*[=:]\s*(.+)", line)
+            
+            if match:
+                param_name = match.group(1).strip()
+                raw_value = match.group(2).strip()
+                
+                parts = raw_value.split(' ')
+                val_display = raw_value
+                unit_display = "-"
+                
+                if len(parts) > 1 and parts[-1].isalpha():
+                    val_display = " ".join(parts[:-1])
+                    unit_display = parts[-1]
+                
+                self.add_result_row_widget(row_idx, param_name, val_display, unit_display)
+                row_idx += 1
+            else:
+                # กรณีที่เป็น Header (มี :) ให้แสดง
+                if line.endswith(':'): 
+                    lbl = ctk.CTkLabel(self.result_scroll, text=line, font=("Arial", 12, "bold"), text_color="#3498DB")
+                    lbl.grid(row=row_idx, column=0, columnspan=3, sticky="w", pady=(10,2), padx=5)
+                    self.result_widgets.append(lbl)
+                    row_idx += 1
+                else:
+                    # กรณีอื่นๆ ที่ไม่ใช่ Netlist แต่หลุดมา (ถ้ามี)
+                    pass 
+
+    def add_result_row_widget(self, row, param, val, unit):
+        # 1. Parameter Name (Entry Readonly)
+        e_param = ctk.CTkEntry(self.result_scroll, width=120, font=("Arial", 13, "bold"))
+        e_param.insert(0, param)
+        e_param.configure(state="readonly")
+        e_param.grid(row=row, column=0, padx=3, pady=3, sticky="ew")
+        
+        # 2. Value (Entry Readonly - Green Color)
+        e_val = ctk.CTkEntry(self.result_scroll, width=120, font=("Consolas", 13, "bold"), text_color="#2ECC71")
+        e_val.insert(0, val)
+        e_val.configure(state="readonly")
+        e_val.grid(row=row, column=1, padx=3, pady=3, sticky="ew")
+        
+        # 3. Unit (Label)
+        l_unit = ctk.CTkLabel(self.result_scroll, text=unit, font=("Arial", 12))
+        l_unit.grid(row=row, column=2, padx=3, pady=3)
+        
+        self.result_widgets.extend([e_param, e_val, l_unit])
 
     # ==========================
     # Image & Main Process
@@ -302,15 +350,13 @@ class CircuitApp(ctk.CTk):
             self.status_label.configure(text="Image Loaded")
             self.lbl_img_analysis_view.configure(image=None, text="Pending Process...")
             self.populate_editor_from_text("")
-            self.display_result_formatted("")
+            self.clear_results()
 
     def show_image(self, cv_img, label_widget):
         if cv_img is None: return
         cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         im_pil = Image.fromarray(cv_img)
         
-        # ปรับขนาดภาพให้ Dynamic ตามขนาดจอ (Full Screen)
-        # เนื่องจากจอใหญ่ขึ้น เราสามารถให้ภาพละเอียดขึ้นได้
         h_frame = 400 
         w_frame = 500
         ctk_img = ctk.CTkImage(light_image=im_pil, dark_image=im_pil, size=(w_frame, h_frame))
