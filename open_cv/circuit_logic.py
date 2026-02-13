@@ -9,155 +9,151 @@ class CircuitProcessor:
         pass
 
     def get_center(self, box):
-        """ช่วยคำนวณจุดกึ่งกลางของกล่อง"""
         if isinstance(box, list) or isinstance(box, np.ndarray):
             box = np.array(box).flatten()
-            if len(box) == 4: # x1, y1, x2, y2
+            if len(box) == 4:
                 return int((box[0] + box[2]) / 2), int((box[1] + box[3]) / 2)
-            elif len(box) >= 8: # Polygon
-                pts = box.reshape(-1, 2)
-                return int(np.mean(pts[:, 0])), int(np.mean(pts[:, 1]))
         return 0, 0
 
-    def check_unit_match(self, text, label):
-        """
-        ตรวจสอบว่า Text มีหน่วยตรงกับชนิดอุปกรณ์หรือไม่
-        Return: True ถ้าหน่วยตรง, False ถ้าไม่ตรง
-        """
-        text = text.lower().strip()
-        label = label.lower()
-        
-        # กรอง Text ที่ไม่มีตัวเลขเลยออกไปก่อน (ค่าอุปกรณ์ต้องมีตัวเลข เช่น 10k, 5V)
-        if not any(char.isdigit() for char in text):
-            return False
+    def calculate_distance(self, p1, p2):
+        return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
-        # กฎการเช็คหน่วยตามชนิดอุปกรณ์
-        if "capacitor" in label:
-            # ต้องลงท้ายด้วย f (เช่น 10uf, 100nf) หรือมี f ในคำ
-            return bool(re.search(r'[fF]$', text)) or 'f' in text
-        
-        elif "inductor" in label:
-            # ต้องมี h (เช่น 1mh, 10uh)
+    def clean_text_value(self, text):
+        text = text.replace("O", "0").replace("o", "0") 
+        text = text.replace("l", "1").replace("I", "1")
+        text = text.replace(" ", "")
+        return text
+
+    def is_unit_compatible(self, comp_type, text):
+        text = text.lower()
+        if comp_type == 'R':
+            return any(x in text for x in ['ohm', 'k', 'm', 'r']) or text.replace('.','').isdigit()
+        elif comp_type == 'C':
+            return any(x in text for x in ['f', 'u', 'n', 'p', 'micro'])
+        elif comp_type == 'L':
             return 'h' in text
-        
-        elif "voltage" in label or "source" in label: # Voltage Source
-            # ต้องมี v (เช่น 5v, 12v)
+        elif comp_type == 'V':
             return 'v' in text
-            
-        elif "current" in label: # Current Source
-            # ต้องมี a (เช่น 1a, 20ma)
+        elif comp_type == 'I':
             return 'a' in text
+        return True
+
+    def merge_text_and_symbols(self, text_data, yolo_components, threshold=80):
+        if not text_data:
+            return text_data, yolo_components
+
+        symbols = []
+        main_components = []
+        unit_keywords = ['micro', 'ohm', 'symbol'] 
+
+        for comp in yolo_components:
+            name = comp.get('name', '').lower()
+            is_symbol = any(k in name for k in unit_keywords)
+            if is_symbol:
+                symbols.append(comp)
+            else:
+                main_components.append(comp)
+
+        for item in text_data:
+            txt_center = self.get_center(item['box'])
+            current_text = self.clean_text_value(item['text'])
+            closest_sym = None
+            min_dist = float('inf')
+
+            for sym in symbols:
+                sym_center = self.get_center(sym['box'])
+                dist = self.calculate_distance(txt_center, sym_center)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_sym = sym
+
+            if closest_sym and min_dist < threshold:
+                sym_name = closest_sym.get('name', '').lower()
+                unit_suffix = ""
+                if 'micro' in sym_name: unit_suffix = "u"
+                elif 'ohm' in sym_name: unit_suffix = "ohm"
+                
+                if unit_suffix and unit_suffix not in current_text:
+                    current_text = f"{current_text}{unit_suffix}"
             
-        elif "resistor" in label:
-            # Resistor ยังไม่มีหน่วยโอห์มให้เช็ค 
-            # ให้ผ่านตลอดถ้ามีตัวเลข (Logic ข้างนอกจะเลือกตัวที่ใกล้ที่สุดเอง)
-            return True
-            
-        return False # อุปกรณ์อื่นๆ
+            item['text'] = current_text
+
+        return text_data, main_components
 
     def process_nodes(self, original_image, components, text_data=None):
-        """
-        Input: ภาพต้นฉบับ, ข้อมูล Components (YOLO), ข้อมูล Text (OCR)
-        Output: ภาพ Clean, ภาพผลลัพธ์ (Schematic), Netlist Text
-        """
-        
-        # 1. เตรียมข้อมูล & โครงสร้าง
+        text_data, main_components = self.merge_text_and_symbols(text_data, components)
+
         img_clean = original_image.copy() 
         final_schematic = original_image.copy() 
-        
         processed_comps = []
-        for i, comp in enumerate(components):
-            if isinstance(comp, dict):
-                box = list(map(int, comp['box']))
-                if 'name' in comp:
-                    comp_name = comp['name']
-                    label = comp.get('label', comp_name.split('_')[0]) # ดึง label ดิบออกมา (เช่น resistor)
-                else:
-                    label = comp.get('label', 'comp')
-                    comp_name = f"{label}_{i+1}"
-            else:
-                box = list(map(int, comp[:4]))
-                label = 'comp'
-                comp_name = f"comp_{i+1}"
+        
+        def get_spice_info(label):
+            label = label.lower()
+            if 'resistor' in label: return 'R'
+            if 'capacitor' in label: return 'C'
+            if 'inductor' in label: return 'L'
+            if 'voltage' in label or 'source' in label: return 'V'
+            if 'current' in label: return 'I'
+            return 'X'
+
+        for i, comp in enumerate(main_components):
+            box = list(map(int, comp['box']))
+            raw_label = comp.get('name', f"comp_{i}")
+            prefix = get_spice_info(raw_label)
+            spice_name = f"{prefix}{i+1}"
             
             processed_comps.append({
                 "id": i,
-                "name": comp_name,
-                "label": label, # เก็บ label ไว้เช็คหน่วย
+                "name": spice_name,
+                "type": prefix,
                 "box": box,
                 "raw_nodes": [],
-                "matched_value": None # เก็บค่าที่ Smart Match ได้
+                "matched_value": None 
             })
 
-        # =========================================================
-        # 🔥 STEP: Smart Value Matching (จับคู่ค่าตามหน่วย)
-        # =========================================================
         if text_data:
-            used_text_indices = set() # กันไม่ให้ text ซ้ำ (ถ้าจำเป็น)
-
             for comp in processed_comps:
                 cx, cy = self.get_center(comp['box'])
                 candidates = []
-
-                # 1. หาระยะห่างของ Text ทุกตัวกับ Component นี้
-                for t_idx, item in enumerate(text_data):
+                for item in text_data:
                     tx, ty = self.get_center(item['box'])
                     dist = math.sqrt((cx - tx)**2 + (cy - ty)**2)
-                    
-                    # ถ้าระยะห่างไม่เกิน 200 pixel (ปรับได้)
-                    if dist < 200:
-                        candidates.append({
-                            'text': item['text'],
-                            'dist': dist,
-                            'idx': t_idx
-                        })
+                    if dist < 250:
+                        text_val = item['text']
+                        score = dist
+                        if self.is_unit_compatible(comp['type'], text_val):
+                            score -= 100 
+                        candidates.append({'text': text_val, 'score': score})
                 
-                # 2. เรียงลำดับตามความใกล้ (ใกล้สุดขึ้นก่อน)
-                candidates.sort(key=lambda x: x['dist'])
+                candidates.sort(key=lambda x: x['score'])
+                if candidates:
+                    val_clean = candidates[0]['text'].lower()
+                    val_clean = val_clean.replace("ohm", "").replace("f", "").replace("h", "").replace("v", "")
+                    comp['matched_value'] = val_clean.upper()
 
-                # 3. วนหาตัวแรกที่ "หน่วยถูกต้อง"
-                for cand in candidates:
-                    if self.check_unit_match(cand['text'], comp['label']):
-                        comp['matched_value'] = cand['text']
-                        # used_text_indices.add(cand['idx']) # ถ้าไม่อยากให้ใช้ซ้ำให้ uncomment
-                        break # เจอแล้วหยุดเลย เอาตัวที่ใกล้ที่สุดที่หน่วยตรง
-
-        # =========================================================
-        # STEP 1: Masking
-        # =========================================================
         for c in processed_comps:
             x1, y1, x2, y2 = c["box"]
             cv2.rectangle(img_clean, (x1, y1), (x2, y2), (255, 255, 255), -1)
 
         if text_data:
             for item in text_data:
-                box = np.array(item['box']).astype(np.int32)
-                cv2.fillPoly(img_clean, [box], (255, 255, 255))
+                box = item['box']
+                if len(box) == 4 and isinstance(box[0], (int, float)):
+                    x1, y1, x2, y2 = map(int, box)
+                    cv2.rectangle(img_clean, (x1, y1), (x2, y2), (255, 255, 255), -1)
 
-        # =========================================================
-        # STEP 2: Image Processing
-        # =========================================================
         gray = cv2.cvtColor(img_clean, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
         mask_dilated = cv2.dilate(binary, np.ones((5,5), np.uint8), iterations=3)
-
         num_labels, labels_im, stats, centroids = cv2.connectedComponentsWithStats(mask_dilated, connectivity=8)
 
-        # =========================================================
-        # STEP 3: Mapping & Filtering Logic
-        # =========================================================
         margin = 15
-        all_detected_nodes = [] 
-        
+        all_detected_nodes = []
         for c in processed_comps:
             x1, y1, x2, y2 = c["box"]
             h_img, w_img = labels_im.shape
-            
-            roi = labels_im[max(0, y1-margin):min(h_img, y2+margin), 
-                            max(0, x1-margin):min(w_img, x2+margin)]
-            
+            roi = labels_im[max(0, y1-margin):min(h_img, y2+margin), max(0, x1-margin):min(w_img, x2+margin)]
             unique_ids = np.unique(roi)
-            
             for nid in unique_ids:
                 if nid == 0: continue 
                 if stats[nid, cv2.CC_STAT_AREA] > 300:
@@ -165,27 +161,24 @@ class CircuitProcessor:
                     all_detected_nodes.append(nid)
 
         node_counts = Counter(all_detected_nodes)
-        active_node_ids = set()
         
+        active_node_ids = set()
         for c in processed_comps:
             valid_nodes = [n for n in c["raw_nodes"] if node_counts[n] >= 1] 
             c["raw_nodes"] = valid_nodes
-            for n in valid_nodes:
-                active_node_ids.add(n)
-
-        # =========================================================
-        # STEP 4: Visualization
-        # =========================================================
-        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            for n in valid_nodes: active_node_ids.add(n)
+        
         sorted_node_ids = sorted(list(active_node_ids))
         
+        # --- 🔥 FIX: บังคับให้ Node สุดท้ายเป็น '0' (Ground) เสมอ ---
         id_to_name = {}
         for i, nid in enumerate(sorted_node_ids):
-            suffix = str(i // len(alphabet)) if i >= len(alphabet) else ""
-            name = alphabet[i % len(alphabet)] + suffix
-            id_to_name[nid] = name
+            if i == len(sorted_node_ids) - 1:
+                id_to_name[nid] = '0' # บังคับเป็นกราวด์
+            else:
+                id_to_name[nid] = str(i+1)
+        # --------------------------------------------------------
 
-        # วาดเส้น Node
         if len(active_node_ids) > 0:
             colors = np.random.randint(0, 255, size=(num_labels, 3), dtype=np.uint8)
             colors[0] = [0, 0, 0] 
@@ -193,67 +186,26 @@ class CircuitProcessor:
             colored_nodes[labels_im == 0] = 0
             final_schematic = cv2.addWeighted(final_schematic, 0.7, colored_nodes, 0.3, 0)
 
-        # วาดชื่อ Node
         for nid in active_node_ids:
             cx, cy = int(centroids[nid][0]), int(centroids[nid][1])
-            name = id_to_name[nid]
             cv2.circle(final_schematic, (cx, cy), 15, (0, 0, 255), -1) 
-            cv2.putText(final_schematic, name, (cx-7, cy+7), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            # แสดงชื่อ Node (ถ้าเป็น 0 ให้เขียน Gnd)
+            node_name_show = "Gnd" if id_to_name[nid] == '0' else id_to_name[nid]
+            cv2.putText(final_schematic, node_name_show, (cx-7, cy+7), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        # วาดชื่ออุปกรณ์
         for c in processed_comps:
             x1, y1, x2, y2 = c["box"]
+            val_show = c['matched_value'] if c['matched_value'] else "?"
+            display = f"{c['name']} ({val_show})"
             cv2.rectangle(final_schematic, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(final_schematic, c["name"], (x1, y1-5), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 100, 0), 2)
+            cv2.putText(final_schematic, display, (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 100, 0), 2)
 
-        if text_data:
-            for item in text_data:
-                box = np.array(item['box']).astype(np.int32)
-                cv2.polylines(final_schematic, [box], True, (255, 0, 0), 2)
-
-        # =========================================================
-        # STEP 5: Netlist Report Generation
-        # =========================================================
-        netlist_str = "=== 🔌 Circuit Netlist ===\n\n"
-        
-        # 5.1 Nodes Connection
-        netlist_str += "--- Connections ---\n"
+        netlist_str = "# Auto-Generated Netlist\n"
         for c in processed_comps:
-            node_names = [id_to_name[nid] for nid in c["raw_nodes"] if nid in id_to_name]
-            node_names = sorted(list(set(node_names))) 
-            node_str = f"[{', '.join(node_names)}]" if node_names else "[Not Connected]"
-            netlist_str += f"{c['name']} -> Nodes: {node_str}\n"
-
-        # 5.2 (NEW) Smart Values Matching
-        netlist_str += "\n" + "="*35 + "\n"
-        netlist_str += "🔹 Smart Component Values (Auto Match)\n"
-        netlist_str += "="*35 + "\n"
-        
-        found_val = False
-        for c in processed_comps:
-            if c['matched_value']:
-                netlist_str += f"✅ {c['name']} \t= {c['matched_value']}\n"
-                found_val = True
-            else:
-                # กรณีหาไม่เจอ ลองแสดงตัวที่ใกล้ที่สุดแบบไม่มีหน่วยดู (เผื่อ Resistor)
-                pass 
-        
-        if not found_val:
-            netlist_str += "No values matched with correct units.\n"
-
-        # 5.3 Raw OCR Data
-        netlist_str += "\n" + "-"*35 + "\n"
-        netlist_str += "📝 Raw OCR Data (All Detected)\n"
-        netlist_str += "-"*35 + "\n"
-        
-        if text_data:
-            for i, item in enumerate(text_data):
-                conf = item.get('conf', 0)
-                conf_str = f"{conf:.2f}" if isinstance(conf, (float, int)) else "N/A"
-                netlist_str += f"{i+1}. {item['text']} (Conf: {conf_str})\n"
-        else:
-            netlist_str += "No text detected.\n"
+            valid_nodes = [n for n in c["raw_nodes"] if node_counts[n] >= 1]
+            node1 = id_to_name.get(valid_nodes[0], "?") if len(valid_nodes) > 0 else "?"
+            node2 = id_to_name.get(valid_nodes[1], "0") if len(valid_nodes) > 1 else "0"
+            value = c['matched_value'] if c['matched_value'] else "1k"
+            netlist_str += f"{c['name']} {node1} {node2} {value}\n"
 
         return img_clean, final_schematic, netlist_str
