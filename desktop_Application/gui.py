@@ -7,7 +7,9 @@ import threading
 import sys
 import re 
 
-# --- Path Setup ---
+# ==========================================
+# SMART PATH SETUP
+# ==========================================
 def get_base_path():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
@@ -19,7 +21,9 @@ project_root = get_base_path()
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# --- Imports ---
+# ==========================================
+# IMPORT MODULES
+# ==========================================
 try:
     from yolo.yolo_user_function.detector import YoloDetector
     from open_cv.circuit_logic import CircuitProcessor
@@ -38,10 +42,8 @@ class CircuitApp(ctk.CTk):
         super().__init__()
         self.title("Circuit Recognition & Analysis System Pro")
         
-        # 1. SET FULL SCREEN STARTUP
         self.after(0, lambda: self.state('zoomed')) 
 
-        # Initialize Engines
         try:
             self.detector = YoloDetector(MODEL_PATH)
             self.processor = CircuitProcessor()
@@ -59,58 +61,43 @@ class CircuitApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # =================================================
-        # 1. LEFT SIDEBAR (Controls & Navigation)
-        # =================================================
+        # 1. LEFT SIDEBAR
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(4, weight=1) # Spacer
+        self.sidebar.grid_rowconfigure(4, weight=1) 
 
-        # Title
         self.lbl_title = ctk.CTkLabel(self.sidebar, text="⚡ Circuit AI", font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_title.grid(row=0, column=0, padx=20, pady=(30, 20))
 
-        # --- Navigation Buttons (Moved from Top Tabs) ---
-        # 1. Circuit Analysis (First)
         self.btn_nav_analysis = ctk.CTkButton(self.sidebar, corner_radius=0, height=40, border_spacing=10, 
                                               text="Circuit Analysis",
                                               fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
                                               anchor="w", command=self.show_analysis_frame)
         self.btn_nav_analysis.grid(row=1, column=0, sticky="ew")
 
-        # 2. Visualization (Second)
         self.btn_nav_visual = ctk.CTkButton(self.sidebar, corner_radius=0, height=40, border_spacing=10, 
                                             text="Visualization",
                                             fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
                                             anchor="w", command=self.show_visual_frame)
         self.btn_nav_visual.grid(row=2, column=0, sticky="ew")
 
-        # Status Label (Bottom of sidebar)
         self.status_label = ctk.CTkLabel(self.sidebar, text="Waiting for input...", text_color="gray")
         self.status_label.grid(row=5, column=0, padx=20, pady=20, sticky="s")
 
-        # =================================================
         # 2. MAIN CONTENT AREA
-        # =================================================
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         self.main_container.grid_rowconfigure(0, weight=1)
         self.main_container.grid_columnconfigure(0, weight=1)
 
-        # --- Create Frames (Instead of Tabs) ---
         self.frame_analysis = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.frame_visual = ctk.CTkFrame(self.main_container, fg_color="transparent")
 
-        # Setup Content for each frame
-        self.setup_visual_view()   # Build Visual widgets
-        self.setup_analysis_view() # Build Analysis widgets
+        self.setup_visual_view()   
+        self.setup_analysis_view() 
 
-        # Start with Analysis Frame
         self.show_analysis_frame()
 
-    # =================================================
-    # NAVIGATION LOGIC
-    # =================================================
     def show_analysis_frame(self):
         self.frame_visual.grid_forget()
         self.frame_analysis.grid(row=0, column=0, sticky="nsew")
@@ -123,41 +110,31 @@ class CircuitApp(ctk.CTk):
         self.btn_nav_analysis.configure(fg_color="transparent")
         self.btn_nav_visual.configure(fg_color=("gray75", "gray25"))
 
-    # =================================================
-    # VIEW SETUP
-    # =================================================
     def setup_visual_view(self):
-        # Configure Grid for Visualization
         self.frame_visual.grid_columnconfigure((0,1,2), weight=1)
         self.frame_visual.grid_rowconfigure(0, weight=1)
-        
         self.lbl_img_detect = self.create_image_label(self.frame_visual, "YOLO Detection", 0)
         self.lbl_img_raw = self.create_image_label(self.frame_visual, "Cleaned Circuit", 1)
         self.lbl_img_schematic = self.create_image_label(self.frame_visual, "Node Analysis", 2)
 
     def setup_analysis_view(self):
-        # Configure Grid for Analysis
         self.frame_analysis.grid_columnconfigure(0, weight=1) 
         self.frame_analysis.grid_columnconfigure(1, weight=1) 
         self.frame_analysis.grid_rowconfigure(0, weight=1)
 
-        # --- Left Side: Final Image & Upload ---
         self.panel_left_ana = ctk.CTkFrame(self.frame_analysis, fg_color="transparent")
         self.panel_left_ana.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         self.lbl_title_ana_img = ctk.CTkLabel(self.panel_left_ana, text="Analyzed Circuit Reference", font=("Arial", 16, "bold"))
         self.lbl_title_ana_img.pack(pady=(5, 5))
         
-        # Image Label (Placeholder)
         self.lbl_img_analysis_view = ctk.CTkLabel(self.panel_left_ana, text="No Image Processed")
         self.lbl_img_analysis_view.pack(expand=True, fill="both")
 
-        # Upload Button (Centered initially)
         self.btn_internal_upload = ctk.CTkButton(self.panel_left_ana, text="📂 Upload Image to Analyze", 
                                                  height=50, font=("Arial", 16), command=self.handle_internal_upload)
         self.btn_internal_upload.place(relx=0.5, rely=0.5, anchor="center")
 
-        # --- Right Side: Editor & Results ---
         self.panel_right_ana = ctk.CTkFrame(self.frame_analysis, fg_color="transparent")
         self.panel_right_ana.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         
@@ -165,18 +142,16 @@ class CircuitApp(ctk.CTk):
         self.panel_right_ana.grid_rowconfigure(1, weight=1) 
         self.panel_right_ana.grid_rowconfigure(4, weight=1) 
 
-        # 1. Netlist Editor
         self.lbl_editor_title = ctk.CTkLabel(self.panel_right_ana, text="📝 Netlist Editor", font=("Arial", 18, "bold"))
         self.lbl_editor_title.grid(row=0, column=0, sticky="w", pady=(0, 5))
 
         self.editor_scroll = ctk.CTkScrollableFrame(self.panel_right_ana, label_text="Component List")
         self.editor_scroll.grid(row=1, column=0, sticky="nsew") 
         
-        headers = ["Comp", "Node +", "Node -", "Value", "Status"]
+        headers = ["Comp", "Node +", "Node -", "Value", "Unit", "Status"]
         for idx, h in enumerate(headers):
             ctk.CTkLabel(self.editor_scroll, text=h, font=("Arial", 12, "bold"), text_color="#3498DB").grid(row=0, column=idx, padx=5, pady=5)
 
-        # 2. Actions
         self.frame_actions = ctk.CTkFrame(self.panel_right_ana)
         self.frame_actions.grid(row=2, column=0, sticky="ew", pady=15)
         
@@ -186,7 +161,6 @@ class CircuitApp(ctk.CTk):
         self.btn_calc = ctk.CTkButton(self.frame_actions, text="▶ RUN ANALYSIS", command=self.run_lcapy_analysis, fg_color="#27AE60", hover_color="#2ECC71", height=35, font=("Arial", 14, "bold"))
         self.btn_calc.pack(side="right", padx=5, expand=True, fill="x")
 
-        # 3. Results
         self.lbl_result_title = ctk.CTkLabel(self.panel_right_ana, text="📊 Analysis Results", font=("Arial", 18, "bold"))
         self.lbl_result_title.grid(row=3, column=0, sticky="w", pady=(10, 5))
         
@@ -197,27 +171,17 @@ class CircuitApp(ctk.CTk):
         self.result_scroll.grid_columnconfigure(1, weight=2)
         self.result_scroll.grid_columnconfigure(2, weight=1)
 
-    # ==========================
-    # Logic: Upload & Auto Process
-    # ==========================
     def handle_internal_upload(self):
         file_path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg;*.png;*.jpeg")])
         if file_path:
             self.current_image_path = file_path
-            
-            # UI Update
             self.btn_internal_upload.place_forget() 
             self.btn_internal_upload.pack(side="bottom", pady=20, fill="x", padx=40)
             self.btn_internal_upload.configure(text="📂 Change Image")
-
             self.lbl_img_analysis_view.configure(image=None, text="⏳ Processing... Please wait")
             self.status_label.configure(text="Processing Image...")
-
-            # Reset Data
             self.populate_editor_from_text("")
             self.clear_results()
-
-            # Start
             self.start_processing()
 
     def start_processing(self):
@@ -225,11 +189,8 @@ class CircuitApp(ctk.CTk):
 
     def process_thread(self):
         try:
-            # AI Processing
             detect_plot, components = self.detector.detect(self.current_image_path)
-            
             img = cv2.imread(self.current_image_path)
-            
             try:
                 full_ocr = self.ocr.ocr.ocr(img, cls=True) 
             except:
@@ -243,10 +204,7 @@ class CircuitApp(ctk.CTk):
                     formatted_ocr.append({'text': line[1][0], 'box': [min(xs), min(ys), max(xs), max(ys)], 'conf': line[1][1]})
 
             vis, final, netlist = self.processor.process_nodes(img, components, text_data=formatted_ocr)
-            
-            # Update UI
             self.after(0, lambda: self.update_ui_results(detect_plot, vis, final, netlist))
-
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Error", str(e)))
             self.after(0, lambda: self.lbl_img_analysis_view.configure(text="Error Processing"))
@@ -254,21 +212,16 @@ class CircuitApp(ctk.CTk):
             self.after(0, lambda: self.status_label.configure(text="Ready"))
 
     def update_ui_results(self, detect_img, raw_img, schematic_img, netlist_text):
-        # Update Visualization Frame (Background)
         self.show_image(detect_img, self.lbl_img_detect)
         self.show_image(raw_img, self.lbl_img_raw)
         self.show_image(schematic_img, self.lbl_img_schematic)
-        
-        # Update Analysis Frame (Foreground)
         self.show_image(schematic_img, self.lbl_img_analysis_view)
-        
-        # Update Data
         self.populate_editor_from_text(netlist_text)
 
     # ==========================
-    # Editor Logic (Standard)
+    # Editor Logic (Fix: Store Widget for Deletion)
     # ==========================
-    def add_netlist_row(self, name, n1, n2, value, is_ai_generated=False):
+    def add_netlist_row(self, name, n1, n2, value, unit_val="Ohm", is_ai_generated=False):
         row_idx = len(self.netlist_rows) + 1 
         entries = {}
         
@@ -281,8 +234,18 @@ class CircuitApp(ctk.CTk):
         entries['name'] = make_entry(0, name, 80)
         entries['n1']   = make_entry(1, n1, 60)
         entries['n2']   = make_entry(2, n2, 60)
-        entries['val']  = make_entry(3, value, 100)
+        entries['val']  = make_entry(3, value, 80) 
         
+        # === Unit Dropdown ===
+        unit_var = ctk.StringVar(value=unit_val)
+        unit_menu = ctk.CTkOptionMenu(self.editor_scroll, variable=unit_var, 
+                                      values=["V", "A", "Ohm", "F", "H"], 
+                                      width=70, height=28)
+        unit_menu.grid(row=row_idx, column=4, padx=3, pady=3)
+        
+        entries['unit'] = unit_var          # For Logic (get value)
+        entries['unit_widget'] = unit_menu  # For UI Cleanup (destroy)
+
         btn_action = None
         if is_ai_generated:
             btn_action = ctk.CTkButton(self.editor_scroll, text="ON", width=50, fg_color="#27AE60",
@@ -291,14 +254,17 @@ class CircuitApp(ctk.CTk):
             btn_action = ctk.CTkButton(self.editor_scroll, text="❌", width=50, fg_color="#C0392B", 
                                      command=lambda: self.delete_manual_row(entries, btn_action))
 
-        btn_action.grid(row=row_idx, column=4, padx=5, pady=3)
+        btn_action.grid(row=row_idx, column=5, padx=5, pady=3)
         self.netlist_rows.append({'entries': entries, 'btn': btn_action, 'is_ai': is_ai_generated, 'active': True})
 
     def add_manual_row(self):
-        self.add_netlist_row("R_new", "1", "0", "1k", is_ai_generated=False)
+        count = len(self.netlist_rows) + 1
+        unique_name = f"R_Manual_{count}"
+        self.add_netlist_row(unique_name, "1", "0", "10", "Ohm", is_ai_generated=False)
 
     def delete_manual_row(self, entries, btn_obj):
-        for widget in entries.values(): widget.destroy()
+        for w in entries.values(): 
+            if hasattr(w, 'destroy'): w.destroy()
         btn_obj.destroy()
         for i, row_data in enumerate(self.netlist_rows):
             if row_data['btn'] == btn_obj:
@@ -313,13 +279,15 @@ class CircuitApp(ctk.CTk):
             color = "#27AE60" if state else "gray"
             text = "ON" if state else "OFF"
             btn_obj.configure(text=text, fg_color=color)
-            for entry in entries.values():
+            for key, entry in entries.items():
+                if key == 'unit' or key == 'unit_widget': continue 
                 entry.configure(state="normal" if state else "disabled", 
                                 text_color="white" if state else "gray")
 
     def populate_editor_from_text(self, netlist_text):
         for row in self.netlist_rows:
-            for w in row['entries'].values(): w.destroy()
+            for w in row['entries'].values(): 
+                if hasattr(w, 'destroy'): w.destroy()
             row['btn'].destroy()
         self.netlist_rows.clear()
         
@@ -330,14 +298,19 @@ class CircuitApp(ctk.CTk):
                 continue
 
             parts = line.split()
-            if len(parts) >= 4:
-                self.add_netlist_row(parts[0], parts[1], parts[2], " ".join(parts[3:]), is_ai_generated=True)
-            elif len(parts) == 3: 
-                self.add_netlist_row(parts[0], parts[1], parts[2], "?", is_ai_generated=True)
+            comp_name = parts[0].upper()
+            unit_guess = "Ohm"
+            if comp_name.startswith('V'): unit_guess = "V"
+            elif comp_name.startswith('I'): unit_guess = "A"
+            elif comp_name.startswith('C'): unit_guess = "F"
+            elif comp_name.startswith('L'): unit_guess = "H"
 
-    # ==========================
-    # Logic & Result Display
-    # ==========================
+            if len(parts) >= 4:
+                val_str = " ".join(parts[3:])
+                self.add_netlist_row(parts[0], parts[1], parts[2], val_str, unit_guess, is_ai_generated=True)
+            elif len(parts) == 3: 
+                self.add_netlist_row(parts[0], parts[1], parts[2], "?", unit_guess, is_ai_generated=True)
+
     def run_lcapy_analysis(self):
         lines = []
         for row in self.netlist_rows:
@@ -370,7 +343,6 @@ class CircuitApp(ctk.CTk):
 
     def populate_results(self, text, is_error=False):
         self.clear_results()
-        
         if is_error:
             lbl = ctk.CTkLabel(self.result_scroll, text=text, text_color="#E74C3C", justify="left")
             lbl.grid(row=1, column=0, columnspan=3, sticky="w", padx=10, pady=5)
@@ -379,7 +351,6 @@ class CircuitApp(ctk.CTk):
 
         lines = text.split('\n')
         row_idx = 1
-        
         for line in lines:
             line = line.strip()
             if not line: continue
@@ -388,7 +359,6 @@ class CircuitApp(ctk.CTk):
                 if len(line.split()) >= 3: continue
             
             match = re.match(r"(.+?)\s*[=:]\s*(.+)", line)
-            
             if match:
                 param_name = match.group(1).strip()
                 raw_value = match.group(2).strip()
@@ -412,19 +382,14 @@ class CircuitApp(ctk.CTk):
         e_param.insert(0, param)
         e_param.configure(state="readonly")
         e_param.grid(row=row, column=0, padx=3, pady=3, sticky="ew")
-        
         e_val = ctk.CTkEntry(self.result_scroll, width=120, font=("Consolas", 13, "bold"), text_color="#2ECC71")
         e_val.insert(0, val)
         e_val.configure(state="readonly")
         e_val.grid(row=row, column=1, padx=3, pady=3, sticky="ew")
-        
         l_unit = ctk.CTkLabel(self.result_scroll, text=unit, font=("Arial", 12))
         l_unit.grid(row=row, column=2, padx=3, pady=3)
         self.result_widgets.extend([e_param, e_val, l_unit])
 
-    # ==========================
-    # Image Utility
-    # ==========================
     def create_image_label(self, parent, title, col):
         frame = ctk.CTkFrame(parent)
         frame.grid(row=0, column=col, padx=5, pady=5, sticky="nsew")
@@ -437,7 +402,6 @@ class CircuitApp(ctk.CTk):
         if cv_img is None: return
         cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         im_pil = Image.fromarray(cv_img)
-        
         h_frame = 400 
         w_frame = 500
         ctk_img = ctk.CTkImage(light_image=im_pil, dark_image=im_pil, size=(w_frame, h_frame))
