@@ -90,8 +90,11 @@ class CircuitApp(ctk.CTk):
         self.main_container.grid_rowconfigure(0, weight=1)
         self.main_container.grid_columnconfigure(0, weight=1)
 
+        # --- Create Frames ---
         self.frame_analysis = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        self.frame_visual = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        
+        # === แก้ไข: เปลี่ยน Frame Visualization เป็น ScrollableFrame ===
+        self.frame_visual = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent", label_text="Processing Steps")
 
         self.setup_visual_view()   
         self.setup_analysis_view() 
@@ -111,11 +114,15 @@ class CircuitApp(ctk.CTk):
         self.btn_nav_visual.configure(fg_color=("gray75", "gray25"))
 
     def setup_visual_view(self):
-        self.frame_visual.grid_columnconfigure((0,1,2), weight=1)
-        self.frame_visual.grid_rowconfigure(0, weight=1)
-        self.lbl_img_detect = self.create_image_label(self.frame_visual, "YOLO Detection", 0)
-        self.lbl_img_raw = self.create_image_label(self.frame_visual, "Cleaned Circuit", 1)
-        self.lbl_img_schematic = self.create_image_label(self.frame_visual, "Node Analysis", 2)
+        # === แก้ไข: จัด Layout เป็นแนวตั้ง (Column เดียว) ===
+        self.frame_visual.grid_columnconfigure(0, weight=1)
+        # ไม่ต้อง config row weight เพราะ scrollable จะจัดการเอง
+        
+        # เรียงลำดับจากบนลงล่าง (0, 1, 2, 3)
+        self.lbl_img_detect = self.create_image_label(self.frame_visual, "1. YOLO Detection", 0)
+        self.lbl_img_ocr = self.create_image_label(self.frame_visual, "2. OCR Text Detection", 1) # เพิ่ม OCR
+        self.lbl_img_raw = self.create_image_label(self.frame_visual, "3. Cleaned Circuit", 2)
+        self.lbl_img_schematic = self.create_image_label(self.frame_visual, "4. Node Analysis", 3)
 
     def setup_analysis_view(self):
         self.frame_analysis.grid_columnconfigure(0, weight=1) 
@@ -189,37 +196,59 @@ class CircuitApp(ctk.CTk):
 
     def process_thread(self):
         try:
+            # 1. YOLO
             detect_plot, components = self.detector.detect(self.current_image_path)
+            
             img = cv2.imread(self.current_image_path)
+            
+            # 2. OCR
             try:
                 full_ocr = self.ocr.ocr.ocr(img, cls=True) 
             except:
                 full_ocr = []
 
+            # สร้างภาพสำหรับ Visualization OCR
+            ocr_vis_img = img.copy()
+
             formatted_ocr = []
             if full_ocr and full_ocr[0]:
                 for line in full_ocr[0]:
                     pts = line[0]
+                    text = line[1][0]
                     xs, ys = [p[0] for p in pts], [p[1] for p in pts]
-                    formatted_ocr.append({'text': line[1][0], 'box': [min(xs), min(ys), max(xs), max(ys)], 'conf': line[1][1]})
+                    x1, y1, x2, y2 = int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))
+                    
+                    # เก็บข้อมูล
+                    formatted_ocr.append({'text': text, 'box': [x1, y1, x2, y2], 'conf': line[1][1]})
+                    
+                    # วาดลงภาพ Visualization (สีน้ำเงิน)
+                    cv2.rectangle(ocr_vis_img, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                    cv2.putText(ocr_vis_img, text, (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
+            # 3. Process Logic
             vis, final, netlist = self.processor.process_nodes(img, components, text_data=formatted_ocr)
-            self.after(0, lambda: self.update_ui_results(detect_plot, vis, final, netlist))
+            
+            self.after(0, lambda: self.update_ui_results(detect_plot, ocr_vis_img, vis, final, netlist))
+
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Error", str(e)))
             self.after(0, lambda: self.lbl_img_analysis_view.configure(text="Error Processing"))
         finally:
             self.after(0, lambda: self.status_label.configure(text="Ready"))
 
-    def update_ui_results(self, detect_img, raw_img, schematic_img, netlist_text):
+    def update_ui_results(self, detect_img, ocr_img, raw_img, schematic_img, netlist_text):
+        # Update Images in Scrollable View
         self.show_image(detect_img, self.lbl_img_detect)
+        self.show_image(ocr_img, self.lbl_img_ocr) # แสดงภาพ OCR
         self.show_image(raw_img, self.lbl_img_raw)
         self.show_image(schematic_img, self.lbl_img_schematic)
+        
+        # Update Analysis View
         self.show_image(schematic_img, self.lbl_img_analysis_view)
         self.populate_editor_from_text(netlist_text)
 
     # ==========================
-    # Editor Logic (Fix: Store Widget for Deletion)
+    # Editor Logic
     # ==========================
     def add_netlist_row(self, name, n1, n2, value, unit_val="Ohm", is_ai_generated=False):
         row_idx = len(self.netlist_rows) + 1 
@@ -236,15 +265,14 @@ class CircuitApp(ctk.CTk):
         entries['n2']   = make_entry(2, n2, 60)
         entries['val']  = make_entry(3, value, 80) 
         
-        # === Unit Dropdown ===
         unit_var = ctk.StringVar(value=unit_val)
         unit_menu = ctk.CTkOptionMenu(self.editor_scroll, variable=unit_var, 
                                       values=["V", "A", "Ohm", "F", "H"], 
                                       width=70, height=28)
         unit_menu.grid(row=row_idx, column=4, padx=3, pady=3)
         
-        entries['unit'] = unit_var          # For Logic (get value)
-        entries['unit_widget'] = unit_menu  # For UI Cleanup (destroy)
+        entries['unit'] = unit_var
+        entries['unit_widget'] = unit_menu
 
         btn_action = None
         if is_ai_generated:
@@ -390,9 +418,10 @@ class CircuitApp(ctk.CTk):
         l_unit.grid(row=row, column=2, padx=3, pady=3)
         self.result_widgets.extend([e_param, e_val, l_unit])
 
-    def create_image_label(self, parent, title, col):
+    def create_image_label(self, parent, title, row_idx):
         frame = ctk.CTkFrame(parent)
-        frame.grid(row=0, column=col, padx=5, pady=5, sticky="nsew")
+        # แก้ไขให้ใช้ row_idx ในการวางตำแหน่ง (แนวตั้ง)
+        frame.grid(row=row_idx, column=0, padx=5, pady=5, sticky="nsew")
         ctk.CTkLabel(frame, text=title, font=("Arial", 12, "bold")).pack(pady=5)
         lbl_img = ctk.CTkLabel(frame, text="")
         lbl_img.pack(expand=True)

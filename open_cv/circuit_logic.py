@@ -111,6 +111,7 @@ class CircuitProcessor:
                 "matched_value": None 
             })
 
+        # --- 🔥 ส่วน Logic ที่แก้ไขตามคำขอ ---
         if text_data:
             for comp in processed_comps:
                 cx, cy = self.get_center(comp['box'])
@@ -118,19 +119,37 @@ class CircuitProcessor:
                 for item in text_data:
                     tx, ty = self.get_center(item['box'])
                     dist = math.sqrt((cx - tx)**2 + (cy - ty)**2)
-                    if dist < 250:
+                    
+                    if dist < 300: # เพิ่มระยะค้นหาเล็กน้อยเพื่อให้ครอบคลุม
                         text_val = item['text']
+                        
+                        # ✅ กฎเหล็ก: ถ้าไม่มีตัวเลขเลย (0-9) ให้ข้ามไป (ตัดทิ้ง)
+                        if not any(char.isdigit() for char in text_val):
+                            continue
+                            
                         score = dist
+                        # ให้คะแนนพิเศษถ้าหน่วยตรง (Option เสริม)
                         if self.is_unit_compatible(comp['type'], text_val):
                             score -= 100 
+                        
                         candidates.append({'text': text_val, 'score': score})
                 
+                # เรียงลำดับตามความใกล้ (score น้อยสุดขึ้นก่อน)
                 candidates.sort(key=lambda x: x['score'])
+                
                 if candidates:
-                    val_clean = candidates[0]['text'].lower()
-                    val_clean = val_clean.replace("ohm", "").replace("f", "").replace("h", "").replace("v", "")
-                    comp['matched_value'] = val_clean.upper()
+                    val_clean = candidates[0]['text']
+                    val_clean_lower = val_clean.lower()
+                    
+                    # Clean ค่าให้ Lcapy (ลบหน่วยที่ไม่จำเป็นออก ยกเว้นว่าเป็นสมการมีตัว t)
+                    if not any(x in val_clean_lower for x in ['t', '(', ')']):
+                         val_clean = val_clean_lower.replace("ohm", "").replace("f", "").replace("h", "").replace("v", "")
+                    
+                    # แปลงเป็นตัวพิมพ์ใหญ่ถ้าไม่ใช่สมการ หรือคงรูปเดิมไว้
+                    if val_clean.strip():
+                        comp['matched_value'] = val_clean.upper() if len(val_clean) < 4 else val_clean
 
+        # --- ส่วนวาดภาพและสร้าง Netlist (เหมือนเดิม) ---
         for c in processed_comps:
             x1, y1, x2, y2 = c["box"]
             cv2.rectangle(img_clean, (x1, y1), (x2, y2), (255, 255, 255), -1)
@@ -170,14 +189,12 @@ class CircuitProcessor:
         
         sorted_node_ids = sorted(list(active_node_ids))
         
-        # --- 🔥 FIX: บังคับให้ Node สุดท้ายเป็น '0' (Ground) เสมอ ---
         id_to_name = {}
         for i, nid in enumerate(sorted_node_ids):
             if i == len(sorted_node_ids) - 1:
-                id_to_name[nid] = '0' # บังคับเป็นกราวด์
+                id_to_name[nid] = '0' 
             else:
                 id_to_name[nid] = str(i+1)
-        # --------------------------------------------------------
 
         if len(active_node_ids) > 0:
             colors = np.random.randint(0, 255, size=(num_labels, 3), dtype=np.uint8)
@@ -189,7 +206,6 @@ class CircuitProcessor:
         for nid in active_node_ids:
             cx, cy = int(centroids[nid][0]), int(centroids[nid][1])
             cv2.circle(final_schematic, (cx, cy), 15, (0, 0, 255), -1) 
-            # แสดงชื่อ Node (ถ้าเป็น 0 ให้เขียน Gnd)
             node_name_show = "Gnd" if id_to_name[nid] == '0' else id_to_name[nid]
             cv2.putText(final_schematic, node_name_show, (cx-7, cy+7), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
