@@ -47,7 +47,6 @@ class CircuitProcessor:
         unit_keywords = ['micro', 'ohm', 'symbol'] 
 
         for comp in yolo_components:
-            
             name = comp.get('name', '').lower()
             is_symbol = any(k in name for k in unit_keywords)
             if is_symbol:
@@ -63,7 +62,6 @@ class CircuitProcessor:
 
             for sym in symbols:
                 sym_center = self.get_center(sym['box'])
-                #print(f"DEBUG: sym_center is {sym_center}")#fdb
                 dist = self.calculate_distance(txt_center, sym_center)
                 if dist < min_dist:
                     min_dist = dist
@@ -113,7 +111,6 @@ class CircuitProcessor:
                 "matched_value": None 
             })
 
-        # ---  ส่วน Logic ที่แก้ไขตามคำขอ ---
         if text_data:
             for comp in processed_comps:
                 cx, cy = self.get_center(comp['box'])
@@ -122,36 +119,26 @@ class CircuitProcessor:
                     tx, ty = self.get_center(item['box'])
                     dist = math.sqrt((cx - tx)**2 + (cy - ty)**2)
                     
-                    if dist < 500: # เพิ่มระยะค้นหาเล็กน้อยเพื่อให้ครอบคลุม
+                    if dist < 500:
                         text_val = item['text']
-                        
-                        # กฎเหล็ก: ถ้าไม่มีตัวเลขเลย (0-9) ให้ข้ามไป (ตัดทิ้ง)
                         if not any(char.isdigit() for char in text_val):
                             continue
-                            
                         score = dist
-                        # ให้คะแนนพิเศษถ้าหน่วยตรง (Option เสริม)
                         if self.is_unit_compatible(comp['type'], text_val):
                             score -= 100 
-                        
                         candidates.append({'text': text_val, 'score': score})
                 
-                # เรียงลำดับตามความใกล้ (score น้อยสุดขึ้นก่อน)
                 candidates.sort(key=lambda x: x['score'])
                 
                 if candidates:
                     val_clean = candidates[0]['text']
                     val_clean_lower = val_clean.lower()
-                    
-                    # Clean ค่าให้ Lcapy (ลบหน่วยที่ไม่จำเป็นออก ยกเว้นว่าเป็นสมการมีตัว t)
                     if not any(x in val_clean_lower for x in ['t', '(', ')']):
                          val_clean = val_clean_lower.replace("ohm", "").replace("f", "").replace("h", "").replace("v", "")
                     
-                    # แปลงเป็นตัวพิมพ์ใหญ่ถ้าไม่ใช่สมการ หรือคงรูปเดิมไว้
                     if val_clean.strip():
                         comp['matched_value'] = val_clean.upper() if len(val_clean) < 4 else val_clean
 
-        # --- ส่วนวาดภาพและสร้าง Netlist (เหมือนเดิม) ---
         for c in processed_comps:
             x1, y1, x2, y2 = c["box"]
             cv2.rectangle(img_clean, (x1, y1), (x2, y2), (255, 255, 255), -1)
@@ -185,7 +172,8 @@ class CircuitProcessor:
         
         active_node_ids = set()
         for c in processed_comps:
-            valid_nodes = [n for n in c["raw_nodes"] if node_counts[n] >= 1] 
+            # กรอง Noise: ต้องเชื่อมต่อกับอุปกรณ์อย่างน้อย 2 ตัว
+            valid_nodes = [n for n in c["raw_nodes"] if node_counts[n] >= 2] 
             c["raw_nodes"] = valid_nodes
             for n in valid_nodes: active_node_ids.add(n)
         
@@ -198,11 +186,17 @@ class CircuitProcessor:
             else:
                 id_to_name[nid] = str(i+1)
 
+        # --- ส่วนที่แก้ไขการแสดงผล (Visualization) ---
         if len(active_node_ids) > 0:
-            colors = np.random.randint(0, 255, size=(num_labels, 3), dtype=np.uint8)
-            colors[0] = [0, 0, 0] 
+            # 1. สร้างถาดสีดำล้วนสำหรับทุก Label ก่อน (Noise จะได้เป็นสีดำ)
+            colors = np.zeros((num_labels, 3), dtype=np.uint8)
+            
+            # 2. สุ่มสีให้เฉพาะ Node ที่ Active (ผ่านการกรองแล้ว)
+            for nid in active_node_ids:
+                colors[nid] = np.random.randint(0, 255, size=3)
+            
+            # 3. ระบายสีลงบนภาพ (Label ไหนไม่ได้แก้สี ก็จะเป็นสีดำ มองไม่เห็น)
             colored_nodes = colors[labels_im]
-            colored_nodes[labels_im == 0] = 0
             final_schematic = cv2.addWeighted(final_schematic, 0.7, colored_nodes, 0.3, 0)
 
         for nid in active_node_ids:
@@ -220,7 +214,7 @@ class CircuitProcessor:
 
         netlist_str = "# Auto-Generated Netlist\n"
         for c in processed_comps:
-            valid_nodes = [n for n in c["raw_nodes"] if node_counts[n] >= 1]
+            valid_nodes = c["raw_nodes"]
             node1 = id_to_name.get(valid_nodes[0], "?") if len(valid_nodes) > 0 else "?"
             node2 = id_to_name.get(valid_nodes[1], "0") if len(valid_nodes) > 1 else "0"
             value = c['matched_value'] if c['matched_value'] else "1k"

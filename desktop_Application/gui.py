@@ -315,9 +315,21 @@ class CircuitApp(ctk.CTk):
             
             img = cv2.imread(self.current_image_path)
             
+            # --- START: MASKING FOR OCR (ถมขาวทับอุปกรณ์ก่อนส่ง OCR) ---
+            # สร้างภาพ copy เพื่อใช้สำหรับ OCR โดยเฉพาะ
+            img_for_ocr = img.copy()
+            for comp in components:
+                # เช็คว่ามี key 'box' และข้อมูลถูกต้อง
+                if 'box' in comp:
+                    x1, y1, x2, y2 = map(int, comp['box'])
+                    # วาดสี่เหลี่ยมสีขาวทับตำแหน่งอุปกรณ์ (-1 คือถมเต็ม)
+                    cv2.rectangle(img_for_ocr, (x1, y1), (x2, y2), (255, 255, 255), -1)
+            # --- END MASKING ---
+
             # 2. OCR
             try:
-                full_ocr = self.ocr.ocr.ocr(img, cls=True) 
+                # ส่ง img_for_ocr แทน img เพื่อให้ OCR อ่านเฉพาะตัวเลขบนพื้นขาว
+                full_ocr = self.ocr.ocr.ocr(img_for_ocr, cls=True) 
             except:
                 full_ocr = []
 
@@ -340,6 +352,7 @@ class CircuitApp(ctk.CTk):
                     cv2.putText(ocr_vis_img, text, (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
             # 3. Process Logic
+            # ส่ง img ต้นฉบับ (ที่ยังมีอุปกรณ์และเส้นครบ) ไปให้ Logic ประมวลผลต่อ
             vis, final, netlist = self.processor.process_nodes(img, components, text_data=formatted_ocr)
             
             # 🔥 Update: ส่ง components ไปด้วยเพื่อแสดงผล YOLO Raw Data
