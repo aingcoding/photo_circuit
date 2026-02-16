@@ -64,11 +64,12 @@ class CircuitApp(ctk.CTk):
         # 1. LEFT SIDEBAR
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(4, weight=1) 
+        self.sidebar.grid_rowconfigure(5, weight=1) 
 
         self.lbl_title = ctk.CTkLabel(self.sidebar, text="⚡ Circuit AI", font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_title.grid(row=0, column=0, padx=20, pady=(30, 20))
 
+        # --- Navigation Buttons ---
         self.btn_nav_analysis = ctk.CTkButton(self.sidebar, corner_radius=0, height=40, border_spacing=10, 
                                               text="Circuit Analysis",
                                               fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
@@ -81,8 +82,15 @@ class CircuitApp(ctk.CTk):
                                             anchor="w", command=self.show_visual_frame)
         self.btn_nav_visual.grid(row=2, column=0, sticky="ew")
 
+        # 🔥 ปุ่ม Raw Data
+        self.btn_nav_raw = ctk.CTkButton(self.sidebar, corner_radius=0, height=40, border_spacing=10, 
+                                         text="Raw Data",
+                                         fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
+                                         anchor="w", command=self.show_raw_frame)
+        self.btn_nav_raw.grid(row=3, column=0, sticky="ew")
+
         self.status_label = ctk.CTkLabel(self.sidebar, text="Waiting for input...", text_color="gray")
-        self.status_label.grid(row=5, column=0, padx=20, pady=20, sticky="s")
+        self.status_label.grid(row=6, column=0, padx=20, pady=20, sticky="s")
 
         # 2. MAIN CONTENT AREA
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
@@ -92,37 +100,143 @@ class CircuitApp(ctk.CTk):
 
         # --- Create Frames ---
         self.frame_analysis = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        
-        # === แก้ไข: เปลี่ยน Frame Visualization เป็น ScrollableFrame ===
         self.frame_visual = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent", label_text="Processing Steps")
+        self.frame_raw = ctk.CTkFrame(self.main_container, fg_color="transparent") 
 
         self.setup_visual_view()   
         self.setup_analysis_view() 
+        self.setup_raw_view() 
 
         self.show_analysis_frame()
 
+    # ==========================
+    # Navigation Logic
+    # ==========================
     def show_analysis_frame(self):
         self.frame_visual.grid_forget()
+        self.frame_raw.grid_forget()
         self.frame_analysis.grid(row=0, column=0, sticky="nsew")
         self.btn_nav_analysis.configure(fg_color=("gray75", "gray25"))
         self.btn_nav_visual.configure(fg_color="transparent")
+        self.btn_nav_raw.configure(fg_color="transparent")
 
     def show_visual_frame(self):
         self.frame_analysis.grid_forget()
+        self.frame_raw.grid_forget()
         self.frame_visual.grid(row=0, column=0, sticky="nsew")
         self.btn_nav_analysis.configure(fg_color="transparent")
         self.btn_nav_visual.configure(fg_color=("gray75", "gray25"))
+        self.btn_nav_raw.configure(fg_color="transparent")
 
+    def show_raw_frame(self):
+        self.frame_analysis.grid_forget()
+        self.frame_visual.grid_forget()
+        self.frame_raw.grid(row=0, column=0, sticky="nsew")
+        self.btn_nav_analysis.configure(fg_color="transparent")
+        self.btn_nav_visual.configure(fg_color="transparent")
+        self.btn_nav_raw.configure(fg_color=("gray75", "gray25"))
+
+    # ==========================
+    # View Setups
+    # ==========================
     def setup_visual_view(self):
-        # === แก้ไข: จัด Layout เป็นแนวตั้ง (Column เดียว) ===
         self.frame_visual.grid_columnconfigure(0, weight=1)
-        # ไม่ต้อง config row weight เพราะ scrollable จะจัดการเอง
-        
-        # เรียงลำดับจากบนลงล่าง (0, 1, 2, 3)
         self.lbl_img_detect = self.create_image_label(self.frame_visual, "1. YOLO Detection", 0)
-        self.lbl_img_ocr = self.create_image_label(self.frame_visual, "2. OCR Text Detection", 1) # เพิ่ม OCR
+        self.lbl_img_ocr = self.create_image_label(self.frame_visual, "2. OCR Text Detection", 1) 
         self.lbl_img_raw = self.create_image_label(self.frame_visual, "3. Cleaned Circuit", 2)
         self.lbl_img_schematic = self.create_image_label(self.frame_visual, "4. Node Analysis", 3)
+
+    def setup_raw_view(self): # 🔥 UI สำหรับ Raw Data (Split View)
+        self.frame_raw.grid_columnconfigure(0, weight=1)
+        self.frame_raw.grid_columnconfigure(1, weight=1) # 2 Columns
+        self.frame_raw.grid_rowconfigure(1, weight=1)
+
+        # --- LEFT: YOLO ---
+        ctk.CTkLabel(self.frame_raw, text="🧩 YOLO Components", font=("Arial", 20, "bold")).grid(row=0, column=0, sticky="w", padx=20, pady=20)
+        self.yolo_scroll = ctk.CTkScrollableFrame(self.frame_raw, label_text="Detected Components")
+        self.yolo_scroll.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 20))
+
+        # --- RIGHT: OCR ---
+        ctk.CTkLabel(self.frame_raw, text="📄 OCR Text", font=("Arial", 20, "bold")).grid(row=0, column=1, sticky="w", padx=20, pady=20)
+        self.raw_scroll = ctk.CTkScrollableFrame(self.frame_raw, label_text="Detected Text Items")
+        self.raw_scroll.grid(row=1, column=1, sticky="nsew", padx=10, pady=(0, 20))
+        
+        # Init Headers
+        self.refresh_yolo_header()
+        self.refresh_raw_header()
+
+    def refresh_yolo_header(self):
+        for widget in self.yolo_scroll.winfo_children():
+            widget.destroy()
+        
+        header_frame = ctk.CTkFrame(self.yolo_scroll, fg_color="transparent")
+        header_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(header_frame, text="#", width=30, font=("Arial", 12, "bold")).pack(side="left", padx=5)
+        ctk.CTkLabel(header_frame, text="Component", width=150, anchor="w", font=("Arial", 12, "bold")).pack(side="left", padx=5, expand=True, fill="x")
+        ctk.CTkLabel(header_frame, text="Confidence", width=100, font=("Arial", 12, "bold")).pack(side="right", padx=5)
+        ctk.CTkFrame(self.yolo_scroll, height=2, fg_color="gray").pack(fill="x", pady=2)
+
+    def refresh_raw_header(self):
+        for widget in self.raw_scroll.winfo_children():
+            widget.destroy()
+            
+        header_frame = ctk.CTkFrame(self.raw_scroll, fg_color="transparent")
+        header_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(header_frame, text="#", width=30, font=("Arial", 12, "bold")).pack(side="left", padx=5)
+        ctk.CTkLabel(header_frame, text="Detected Text", width=150, anchor="w", font=("Arial", 12, "bold")).pack(side="left", padx=5, expand=True, fill="x")
+        ctk.CTkLabel(header_frame, text="Confidence", width=100, font=("Arial", 12, "bold")).pack(side="right", padx=5)
+        ctk.CTkFrame(self.raw_scroll, height=2, fg_color="gray").pack(fill="x", pady=2)
+
+    def populate_yolo_data(self, components): # 🔥 ฟังก์ชันแสดงข้อมูล YOLO
+        self.refresh_yolo_header()
+        if not components:
+            ctk.CTkLabel(self.yolo_scroll, text="No components detected.", text_color="gray").pack(pady=20)
+            return
+
+        for i, comp in enumerate(components):
+            row = ctk.CTkFrame(self.yolo_scroll)
+            row.pack(fill="x", pady=2)
+            
+            # Index
+            ctk.CTkLabel(row, text=str(i+1), width=30).pack(side="left", padx=5)
+            
+            # Name
+            name = comp.get('name', 'Unknown')
+            ctk.CTkEntry(row, placeholder_text=name).pack(side="left", padx=5, expand=True, fill="x")
+            
+            # Confidence (ถ้า detector ส่งมาไม่ได้ จะแสดง -)
+            conf = comp.get('conf', None)
+            if conf is not None:
+                conf_val = conf * 100
+                conf_color = "#2ECC71" if conf_val > 80 else "#F1C40F"
+                conf_text = f"{conf_val:.1f}%"
+            else:
+                conf_text = "-" # Detector ปัจจุบันอาจไม่ได้ส่งค่า conf มา
+                conf_color = "gray"
+
+            ctk.CTkLabel(row, text=conf_text, width=100, text_color=conf_color).pack(side="right", padx=5)
+
+    def populate_raw_data(self, ocr_data):
+        self.refresh_raw_header()
+        if not ocr_data:
+            ctk.CTkLabel(self.raw_scroll, text="No text detected.", text_color="gray").pack(pady=20)
+            return
+
+        for i, item in enumerate(ocr_data):
+            row = ctk.CTkFrame(self.raw_scroll)
+            row.pack(fill="x", pady=2)
+            
+            ctk.CTkLabel(row, text=str(i+1), width=30).pack(side="left", padx=5)
+            
+            txt_val = item.get('text', '')
+            e = ctk.CTkEntry(row, placeholder_text=txt_val)
+            e.insert(0, txt_val)
+            e.configure(state="readonly")
+            e.pack(side="left", padx=5, expand=True, fill="x")
+            
+            conf = item.get('conf', 0) * 100
+            conf_color = "#2ECC71" if conf > 80 else "#F1C40F" if conf > 50 else "#E74C3C"
+            ctk.CTkLabel(row, text=f"{conf:.1f}%", width=100, text_color=conf_color).pack(side="right", padx=5)
 
     def setup_analysis_view(self):
         self.frame_analysis.grid_columnconfigure(0, weight=1) 
@@ -228,7 +342,8 @@ class CircuitApp(ctk.CTk):
             # 3. Process Logic
             vis, final, netlist = self.processor.process_nodes(img, components, text_data=formatted_ocr)
             
-            self.after(0, lambda: self.update_ui_results(detect_plot, ocr_vis_img, vis, final, netlist))
+            # 🔥 Update: ส่ง components ไปด้วยเพื่อแสดงผล YOLO Raw Data
+            self.after(0, lambda: self.update_ui_results(detect_plot, ocr_vis_img, vis, final, netlist, formatted_ocr, components))
 
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Error", str(e)))
@@ -236,16 +351,20 @@ class CircuitApp(ctk.CTk):
         finally:
             self.after(0, lambda: self.status_label.configure(text="Ready"))
 
-    def update_ui_results(self, detect_img, ocr_img, raw_img, schematic_img, netlist_text):
+    def update_ui_results(self, detect_img, ocr_img, raw_img, schematic_img, netlist_text, ocr_data, yolo_data):
         # Update Images in Scrollable View
         self.show_image(detect_img, self.lbl_img_detect)
-        self.show_image(ocr_img, self.lbl_img_ocr) # แสดงภาพ OCR
+        self.show_image(ocr_img, self.lbl_img_ocr) 
         self.show_image(raw_img, self.lbl_img_raw)
         self.show_image(schematic_img, self.lbl_img_schematic)
         
         # Update Analysis View
         self.show_image(schematic_img, self.lbl_img_analysis_view)
         self.populate_editor_from_text(netlist_text)
+
+        # 🔥 Update Raw Data View
+        self.populate_raw_data(ocr_data)
+        self.populate_yolo_data(yolo_data)
 
     # ==========================
     # Editor Logic
@@ -420,7 +539,6 @@ class CircuitApp(ctk.CTk):
 
     def create_image_label(self, parent, title, row_idx):
         frame = ctk.CTkFrame(parent)
-        # แก้ไขให้ใช้ row_idx ในการวางตำแหน่ง (แนวตั้ง)
         frame.grid(row=row_idx, column=0, padx=5, pady=5, sticky="nsew")
         ctk.CTkLabel(frame, text=title, font=("Arial", 12, "bold")).pack(pady=5)
         lbl_img = ctk.CTkLabel(frame, text="")
