@@ -9,17 +9,17 @@ class CircuitProcessor:
         pass
 
     def get_center(self, box):
-        if isinstance(box, list) or isinstance(box, np.ndarray):
-            box = np.array(box).flatten()
-            if len(box) == 4:
-                return int((box[0] + box[2]) / 2), int((box[1] + box[3]) / 2)
+        #if isinstance(box, list) or isinstance(box, np.ndarray):
+        box = np.array(box).flatten()
+        if len(box) == 4:
+            return int((box[0] + box[2]) / 2), int((box[1] + box[3]) / 2)
         return 0, 0
 
     def calculate_distance(self, p1, p2):
         return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
     def clean_text_value(self, text):
-        text = text.replace("O", "0").replace("o", "0") 
+        #text = text.replace("O", "0").replace("o", "0") 
         text = text.replace("l", "1").replace("I", "1")
         text = text.replace(" ", "")
         return text
@@ -47,13 +47,14 @@ class CircuitProcessor:
         unit_keywords = ['micro', 'ohm', 'symbol'] 
 
         for comp in yolo_components:
+            
             name = comp.get('name', '').lower()
             is_symbol = any(k in name for k in unit_keywords)
             if is_symbol:
                 symbols.append(comp)
             else:
                 main_components.append(comp)
-
+        
         for item in text_data:
             txt_center = self.get_center(item['box'])
             current_text = self.clean_text_value(item['text'])
@@ -62,6 +63,7 @@ class CircuitProcessor:
 
             for sym in symbols:
                 sym_center = self.get_center(sym['box'])
+                #print(f"DEBUG: sym_center is {sym_center}")#fdb
                 dist = self.calculate_distance(txt_center, sym_center)
                 if dist < min_dist:
                     min_dist = dist
@@ -77,7 +79,7 @@ class CircuitProcessor:
                     current_text = f"{current_text}{unit_suffix}"
             
             item['text'] = current_text
-
+            
         return text_data, main_components
 
     def process_nodes(self, original_image, components, text_data=None):
@@ -111,7 +113,7 @@ class CircuitProcessor:
                 "matched_value": None 
             })
 
-        # --- 🔥 ส่วน Logic ที่แก้ไขตามคำขอ ---
+        # ---  ส่วน Logic ที่แก้ไขตามคำขอ ---
         if text_data:
             for comp in processed_comps:
                 cx, cy = self.get_center(comp['box'])
@@ -120,10 +122,10 @@ class CircuitProcessor:
                     tx, ty = self.get_center(item['box'])
                     dist = math.sqrt((cx - tx)**2 + (cy - ty)**2)
                     
-                    if dist < 300: # เพิ่มระยะค้นหาเล็กน้อยเพื่อให้ครอบคลุม
+                    if dist < 500: # เพิ่มระยะค้นหาเล็กน้อยเพื่อให้ครอบคลุม
                         text_val = item['text']
                         
-                        # ✅ กฎเหล็ก: ถ้าไม่มีตัวเลขเลย (0-9) ให้ข้ามไป (ตัดทิ้ง)
+                        # กฎเหล็ก: ถ้าไม่มีตัวเลขเลย (0-9) ให้ข้ามไป (ตัดทิ้ง)
                         if not any(char.isdigit() for char in text_val):
                             continue
                             
