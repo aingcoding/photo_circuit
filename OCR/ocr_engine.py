@@ -87,5 +87,5 @@ class CircuitOCR:
                     'near': nearest_comp
                 })
 
-        print(f"✅ OCR Filtered: {len(filtered_texts)} texts remain.")
+        print(f" OCR Filtered: {len(filtered_texts)} texts remain.")
         return filtered_texts
