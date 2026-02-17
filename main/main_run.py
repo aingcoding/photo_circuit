@@ -1,7 +1,7 @@
 import sys
 import os
 
-# --- 🔧 FIX PATH SYSTEM (ส่วนสำคัญที่สุด) ---
+# ---  FIX PATH SYSTEM (ส่วนสำคัญที่สุด) ---
 # 1. หาตำแหน่งของไฟล์ main_run.py ปัจจุบัน (.../main/main_run.py)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 

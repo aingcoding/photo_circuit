@@ -22,6 +22,9 @@ class CircuitProcessor:
         #text = text.replace("O", "0").replace("o", "0") 
         text = text.replace("l", "1").replace("I", "1")
         text = text.replace(" ", "")
+        text = re.sub(r'(?i)c[0oO]s', 'cos', text)
+        text = re.sub(r'(?i)s[1iIl|]n', 'sin', text)
+
         return text
 
     def is_unit_compatible(self, comp_type, text):

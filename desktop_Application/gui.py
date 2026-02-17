@@ -82,7 +82,7 @@ class CircuitApp(ctk.CTk):
                                             anchor="w", command=self.show_visual_frame)
         self.btn_nav_visual.grid(row=2, column=0, sticky="ew")
 
-        # 🔥 ปุ่ม Raw Data
+        #  ปุ่ม Raw Data
         self.btn_nav_raw = ctk.CTkButton(self.sidebar, corner_radius=0, height=40, border_spacing=10, 
                                          text="Raw Data",
                                          fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
@@ -146,18 +146,18 @@ class CircuitApp(ctk.CTk):
         self.lbl_img_raw = self.create_image_label(self.frame_visual, "3. Cleaned Circuit", 2)
         self.lbl_img_schematic = self.create_image_label(self.frame_visual, "4. Node Analysis", 3)
 
-    def setup_raw_view(self): # 🔥 UI สำหรับ Raw Data (Split View)
+    def setup_raw_view(self): #  UI สำหรับ Raw Data (Split View)
         self.frame_raw.grid_columnconfigure(0, weight=1)
         self.frame_raw.grid_columnconfigure(1, weight=1) # 2 Columns
         self.frame_raw.grid_rowconfigure(1, weight=1)
 
         # --- LEFT: YOLO ---
-        ctk.CTkLabel(self.frame_raw, text="🧩 YOLO Components", font=("Arial", 20, "bold")).grid(row=0, column=0, sticky="w", padx=20, pady=20)
+        ctk.CTkLabel(self.frame_raw, text=" YOLO Components", font=("Arial", 20, "bold")).grid(row=0, column=0, sticky="w", padx=20, pady=20)
         self.yolo_scroll = ctk.CTkScrollableFrame(self.frame_raw, label_text="Detected Components")
         self.yolo_scroll.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 20))
 
         # --- RIGHT: OCR ---
-        ctk.CTkLabel(self.frame_raw, text="📄 OCR Text", font=("Arial", 20, "bold")).grid(row=0, column=1, sticky="w", padx=20, pady=20)
+        ctk.CTkLabel(self.frame_raw, text=" OCR Text", font=("Arial", 20, "bold")).grid(row=0, column=1, sticky="w", padx=20, pady=20)
         self.raw_scroll = ctk.CTkScrollableFrame(self.frame_raw, label_text="Detected Text Items")
         self.raw_scroll.grid(row=1, column=1, sticky="nsew", padx=10, pady=(0, 20))
         
@@ -187,7 +187,7 @@ class CircuitApp(ctk.CTk):
         ctk.CTkLabel(header_frame, text="Confidence", width=100, font=("Arial", 12, "bold")).pack(side="right", padx=5)
         ctk.CTkFrame(self.raw_scroll, height=2, fg_color="gray").pack(fill="x", pady=2)
 
-    def populate_yolo_data(self, components): # 🔥 ฟังก์ชันแสดงข้อมูล YOLO
+    def populate_yolo_data(self, components): #  ฟังก์ชันแสดงข้อมูล YOLO
         self.refresh_yolo_header()
         if not components:
             ctk.CTkLabel(self.yolo_scroll, text="No components detected.", text_color="gray").pack(pady=20)
@@ -252,7 +252,7 @@ class CircuitApp(ctk.CTk):
         self.lbl_img_analysis_view = ctk.CTkLabel(self.panel_left_ana, text="No Image Processed")
         self.lbl_img_analysis_view.pack(expand=True, fill="both")
 
-        self.btn_internal_upload = ctk.CTkButton(self.panel_left_ana, text="📂 Upload Image to Analyze", 
+        self.btn_internal_upload = ctk.CTkButton(self.panel_left_ana, text="Upload Image to Analyze", 
                                                  height=50, font=("Arial", 16), command=self.handle_internal_upload)
         self.btn_internal_upload.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -263,7 +263,7 @@ class CircuitApp(ctk.CTk):
         self.panel_right_ana.grid_rowconfigure(1, weight=1) 
         self.panel_right_ana.grid_rowconfigure(4, weight=1) 
 
-        self.lbl_editor_title = ctk.CTkLabel(self.panel_right_ana, text="📝 Netlist Editor", font=("Arial", 18, "bold"))
+        self.lbl_editor_title = ctk.CTkLabel(self.panel_right_ana, text=" Netlist Editor", font=("Arial", 18, "bold"))
         self.lbl_editor_title.grid(row=0, column=0, sticky="w", pady=(0, 5))
 
         self.editor_scroll = ctk.CTkScrollableFrame(self.panel_right_ana, label_text="Component List")
@@ -279,10 +279,10 @@ class CircuitApp(ctk.CTk):
         self.btn_add_comp = ctk.CTkButton(self.frame_actions, text="+ Add Manual Component", command=self.add_manual_row, fg_color="#5D6D7E", height=35)
         self.btn_add_comp.pack(side="left", padx=5, expand=True, fill="x")
         
-        self.btn_calc = ctk.CTkButton(self.frame_actions, text="▶ RUN ANALYSIS", command=self.run_lcapy_analysis, fg_color="#27AE60", hover_color="#2ECC71", height=35, font=("Arial", 14, "bold"))
+        self.btn_calc = ctk.CTkButton(self.frame_actions, text=" RUN ANALYSIS", command=self.run_lcapy_analysis, fg_color="#27AE60", hover_color="#2ECC71", height=35, font=("Arial", 14, "bold"))
         self.btn_calc.pack(side="right", padx=5, expand=True, fill="x")
 
-        self.lbl_result_title = ctk.CTkLabel(self.panel_right_ana, text="📊 Analysis Results", font=("Arial", 18, "bold"))
+        self.lbl_result_title = ctk.CTkLabel(self.panel_right_ana, text=" Analysis Results", font=("Arial", 18, "bold"))
         self.lbl_result_title.grid(row=3, column=0, sticky="w", pady=(10, 5))
         
         self.result_scroll = ctk.CTkScrollableFrame(self.panel_right_ana, label_text="Output Parameters")
@@ -298,8 +298,8 @@ class CircuitApp(ctk.CTk):
             self.current_image_path = file_path
             self.btn_internal_upload.place_forget() 
             self.btn_internal_upload.pack(side="bottom", pady=20, fill="x", padx=40)
-            self.btn_internal_upload.configure(text="📂 Change Image")
-            self.lbl_img_analysis_view.configure(image=None, text="⏳ Processing... Please wait")
+            self.btn_internal_upload.configure(text=" Change Image")
+            self.lbl_img_analysis_view.configure(image=None, text=" Processing... Please wait")
             self.status_label.configure(text="Processing Image...")
             self.populate_editor_from_text("")
             self.clear_results()
@@ -355,7 +355,7 @@ class CircuitApp(ctk.CTk):
             # ส่ง img ต้นฉบับ (ที่ยังมีอุปกรณ์และเส้นครบ) ไปให้ Logic ประมวลผลต่อ
             vis, final, netlist = self.processor.process_nodes(img, components, text_data=formatted_ocr)
             
-            # 🔥 Update: ส่ง components ไปด้วยเพื่อแสดงผล YOLO Raw Data
+            #  Update: ส่ง components ไปด้วยเพื่อแสดงผล YOLO Raw Data
             self.after(0, lambda: self.update_ui_results(detect_plot, ocr_vis_img, vis, final, netlist, formatted_ocr, components))
 
         except Exception as e:
@@ -375,7 +375,7 @@ class CircuitApp(ctk.CTk):
         self.show_image(schematic_img, self.lbl_img_analysis_view)
         self.populate_editor_from_text(netlist_text)
 
-        # 🔥 Update Raw Data View
+        #  Update Raw Data View
         self.populate_raw_data(ocr_data)
         self.populate_yolo_data(yolo_data)
 
