@@ -34,7 +34,7 @@ class CircuitProcessor:
         elif comp_type == 'C':
             return any(x in text for x in ['f', 'u', 'n', 'p', 'micro'])
         elif comp_type == 'L':
-            return 'h' in text
+            return 'h' in text and 'ohm' not in text and 'hz' not in text
         elif comp_type == 'V':
             return 'v' in text
         elif comp_type == 'I':
@@ -117,24 +117,35 @@ class CircuitProcessor:
         if text_data:
             for comp in processed_comps:
                 cx, cy = self.get_center(comp['box'])
-                candidates = []
+                
+                unit_matched_candidates = []
+                number_only_candidates = []
+                
                 for item in text_data:
                     tx, ty = self.get_center(item['box'])
                     dist = math.sqrt((cx - tx)**2 + (cy - ty)**2)
+                    text_val = item['text']
                     
                     if dist < 500:
-                        text_val = item['text']
                         if not any(char.isdigit() for char in text_val):
                             continue
-                        score = dist
+                            
                         if self.is_unit_compatible(comp['type'], text_val):
-                            score -= 100 
-                        candidates.append({'text': text_val, 'score': score})
+                            unit_matched_candidates.append({'text': text_val, 'dist': dist})
+                        else:
+                            number_only_candidates.append({'text': text_val, 'dist': dist})
                 
-                candidates.sort(key=lambda x: x['score'])
+                best_text = None
                 
-                if candidates:
-                    val_clean = candidates[0]['text']
+                if unit_matched_candidates:
+                    unit_matched_candidates.sort(key=lambda x: x['dist'])
+                    best_text = unit_matched_candidates[0]['text']
+                elif number_only_candidates:
+                    number_only_candidates.sort(key=lambda x: x['dist'])
+                    best_text = number_only_candidates[0]['text']
+
+                if best_text:
+                    val_clean = best_text
                     val_clean_lower = val_clean.lower()
                     if not any(x in val_clean_lower for x in ['t', '(', ')']):
                          val_clean = val_clean_lower.replace("ohm", "").replace("f", "").replace("h", "").replace("v", "")
@@ -142,9 +153,12 @@ class CircuitProcessor:
                     if val_clean.strip():
                         comp['matched_value'] = val_clean.upper() if len(val_clean) < 4 else val_clean
 
-        for c in processed_comps:
-            x1, y1, x2, y2 = c["box"]
-            cv2.rectangle(img_clean, (x1, y1), (x2, y2), (255, 255, 255), -1)
+        # --- แก้ไขตรงนี้: ลบ YOLO Components ทั้งหมด (รวมถึง Symbols) ---
+        for comp in components:
+            box = comp.get("box", [])
+            if len(box) == 4:
+                x1, y1, x2, y2 = map(int, box)
+                cv2.rectangle(img_clean, (x1, y1), (x2, y2), (255, 255, 255), -1)
 
         if text_data:
             for item in text_data:
@@ -175,7 +189,6 @@ class CircuitProcessor:
         
         active_node_ids = set()
         for c in processed_comps:
-            # กรอง Noise: ต้องเชื่อมต่อกับอุปกรณ์อย่างน้อย 2 ตัว
             valid_nodes = [n for n in c["raw_nodes"] if node_counts[n] >= 2] 
             c["raw_nodes"] = valid_nodes
             for n in valid_nodes: active_node_ids.add(n)
@@ -189,16 +202,12 @@ class CircuitProcessor:
             else:
                 id_to_name[nid] = str(i+1)
 
-        # --- ส่วนที่แก้ไขการแสดงผล (Visualization) ---
         if len(active_node_ids) > 0:
-            # 1. สร้างถาดสีดำล้วนสำหรับทุก Label ก่อน (Noise จะได้เป็นสีดำ)
             colors = np.zeros((num_labels, 3), dtype=np.uint8)
             
-            # 2. สุ่มสีให้เฉพาะ Node ที่ Active (ผ่านการกรองแล้ว)
             for nid in active_node_ids:
                 colors[nid] = np.random.randint(0, 255, size=3)
             
-            # 3. ระบายสีลงบนภาพ (Label ไหนไม่ได้แก้สี ก็จะเป็นสีดำ มองไม่เห็น)
             colored_nodes = colors[labels_im]
             final_schematic = cv2.addWeighted(final_schematic, 0.7, colored_nodes, 0.3, 0)
 

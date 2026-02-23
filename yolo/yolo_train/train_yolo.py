@@ -3,12 +3,12 @@ from ultralytics import YOLO
 def main():
     # 1. โหลดโมเดล (สำคัญ: ต้องใช้ yolov8n.pt เฉยๆ ห้ามมี -cls)
     # นี่คือโมเดลสำหรับ Object Detection
-    model = YOLO('yolov8n.pt') 
+    model = YOLO('yolov8s.pt') 
 
     # 2. เริ่มการเทรน
     results = model.train(
         # ใส่ Path ของไฟล์ data.yaml ที่เราสร้างในขั้นตอนที่ 2
-        data=r"C:\Users\ACER\OneDrive\Desktop\AI_project\ohm-micro.v1i.yolov8\data.yaml",
+        data=r"C:\Users\ACER\OneDrive\Desktop\AI_project\ohm-micro.v11i.yolov8\data.yaml",
         
         epochs=100,      # รอบการเทรน (งาน Detection ยากกว่า Classify ควรเทรนเยอะหน่อย)
         imgsz=640,       # ขนาดภาพ (640 คือมาตรฐานของ Detection ภาพวงจรควรใช้ 640 หรือสูงกว่า)

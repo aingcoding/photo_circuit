@@ -7,9 +7,9 @@ class YoloDetector:
 
     def detect(self, image_path):
         # 1. Predict
-        results = self.model.predict(image_path, conf=0.5, verbose=False)[0]
+        results = self.model.predict(image_path, conf=0.4,iou=0.6, verbose=False)[0]
         
-        # 2. Get Plot Image (รูปที่มีกรอบสี่เหลี่ยมจาก YOLO)
+        # 2. Get Plot Image 
         detect_plot = results.plot()
         
         # 3. Extract Components Data

@@ -66,7 +66,7 @@ class CircuitApp(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_rowconfigure(5, weight=1) 
 
-        self.lbl_title = ctk.CTkLabel(self.sidebar, text="⚡ Circuit AI", font=ctk.CTkFont(size=24, weight="bold"))
+        self.lbl_title = ctk.CTkLabel(self.sidebar, text="Circuit VISION", font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_title.grid(row=0, column=0, padx=20, pady=(30, 20))
 
         # --- Navigation Buttons ---
@@ -411,7 +411,7 @@ class CircuitApp(ctk.CTk):
             btn_action = ctk.CTkButton(self.editor_scroll, text="ON", width=50, fg_color="#27AE60",
                                      command=lambda: self.toggle_ai_row(entries, btn_action))
         else:
-            btn_action = ctk.CTkButton(self.editor_scroll, text="❌", width=50, fg_color="#C0392B", 
+            btn_action = ctk.CTkButton(self.editor_scroll, text="", width=50, fg_color="#C0392B", 
                                      command=lambda: self.delete_manual_row(entries, btn_action))
 
         btn_action.grid(row=row_idx, column=5, padx=5, pady=3)
