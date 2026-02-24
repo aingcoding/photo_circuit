@@ -37,7 +37,7 @@ def analyze_netlist(netlist_str):
         log(">> Time-Domain Analysis (t ≥ 0):")
         
         if '0' not in cct.nodes:
-            log("⚠️ Warning: No Ground Node (0) found.")
+            log("Warning: No Ground Node (0) found.")
 
         # แสดง Voltage ทุก Node ในรูปสมการเวลา
         node_list = sorted([str(n) for n in cct.nodes if str(n) != '0'])
