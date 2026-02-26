@@ -9,7 +9,6 @@ class CircuitProcessor:
         pass
 
     def get_center(self, box):
-        #if isinstance(box, list) or isinstance(box, np.ndarray):
         box = np.array(box).flatten()
         if len(box) == 4:
             return int((box[0] + box[2]) / 2), int((box[1] + box[3]) / 2)
@@ -153,7 +152,6 @@ class CircuitProcessor:
                     if val_clean.strip():
                         comp['matched_value'] = val_clean.upper() if len(val_clean) < 4 else val_clean
 
-        # --- แก้ไขตรงนี้: ลบ YOLO Components ทั้งหมด (รวมถึง Symbols) ---
         for comp in components:
             box = comp.get("box", [])
             if len(box) == 4:

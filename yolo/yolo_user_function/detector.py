@@ -6,17 +6,13 @@ class YoloDetector:
         self.model = YOLO(model_path)
 
     def detect(self, image_path):
-        # 1. Predict
         results = self.model.predict(image_path, conf=0.4,iou=0.6, verbose=False)[0]
         
-        # 2. Get Plot Image 
         detect_plot = results.plot()
         
-        # 3. Extract Components Data
         components = []
         class_counters = {}
         
-        # ดึงข้อมูล Box และ Class
         boxes = results.boxes.xyxy.cpu().numpy().astype(int)
         classes = results.boxes.cls.cpu().numpy().astype(int)
         names = results.names
@@ -25,7 +21,6 @@ class YoloDetector:
             x1, y1, x2, y2 = box
             label = names[cls]
             
-            # นับจำนวนอุปกรณ์ (เช่น Resistor_1, Resistor_2)
             if label not in class_counters: 
                 class_counters[label] = 0
             class_counters[label] += 1
@@ -33,7 +28,7 @@ class YoloDetector:
             components.append({
                 "name": f"{label}_{class_counters[label]}",
                 "box": (x1, y1, x2, y2),
-                "raw_nodes": [] # เตรียมที่ว่างไว้ใส่ node
+                "raw_nodes": [] 
             })
             
         return detect_plot, components

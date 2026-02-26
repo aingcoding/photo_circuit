@@ -7,9 +7,7 @@ import threading
 import sys
 import re 
 
-# ==========================================
-# SMART PATH SETUP
-# ==========================================
+
 def get_base_path():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
@@ -21,9 +19,6 @@ project_root = get_base_path()
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# ==========================================
-# IMPORT MODULES
-# ==========================================
 try:
     from yolo.yolo_user_function.detector import YoloDetector
     from open_cv.circuit_logic import CircuitProcessor
@@ -61,7 +56,6 @@ class CircuitApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # 1. LEFT SIDEBAR
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_rowconfigure(5, weight=1) 
@@ -69,7 +63,6 @@ class CircuitApp(ctk.CTk):
         self.lbl_title = ctk.CTkLabel(self.sidebar, text="Circuit VISION", font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_title.grid(row=0, column=0, padx=20, pady=(30, 20))
 
-        # --- Navigation Buttons ---
         self.btn_nav_analysis = ctk.CTkButton(self.sidebar, corner_radius=0, height=40, border_spacing=10, 
                                               text="Circuit Analysis",
                                               fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
@@ -82,7 +75,6 @@ class CircuitApp(ctk.CTk):
                                             anchor="w", command=self.show_visual_frame)
         self.btn_nav_visual.grid(row=2, column=0, sticky="ew")
 
-        #  ปุ่ม Raw Data
         self.btn_nav_raw = ctk.CTkButton(self.sidebar, corner_radius=0, height=40, border_spacing=10, 
                                          text="Raw Data",
                                          fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
@@ -92,13 +84,11 @@ class CircuitApp(ctk.CTk):
         self.status_label = ctk.CTkLabel(self.sidebar, text="Waiting for input...", text_color="gray")
         self.status_label.grid(row=6, column=0, padx=20, pady=20, sticky="s")
 
-        # 2. MAIN CONTENT AREA
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         self.main_container.grid_rowconfigure(0, weight=1)
         self.main_container.grid_columnconfigure(0, weight=1)
 
-        # --- Create Frames ---
         self.frame_analysis = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.frame_visual = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent", label_text="Processing Steps")
         self.frame_raw = ctk.CTkFrame(self.main_container, fg_color="transparent") 
@@ -109,9 +99,6 @@ class CircuitApp(ctk.CTk):
 
         self.show_analysis_frame()
 
-    # ==========================
-    # Navigation Logic
-    # ==========================
     def show_analysis_frame(self):
         self.frame_visual.grid_forget()
         self.frame_raw.grid_forget()
@@ -136,9 +123,6 @@ class CircuitApp(ctk.CTk):
         self.btn_nav_visual.configure(fg_color="transparent")
         self.btn_nav_raw.configure(fg_color=("gray75", "gray25"))
 
-    # ==========================
-    # View Setups
-    # ==========================
     def setup_visual_view(self):
         self.frame_visual.grid_columnconfigure(0, weight=1)
         self.lbl_img_detect = self.create_image_label(self.frame_visual, "1. YOLO Detection", 0)
@@ -146,22 +130,19 @@ class CircuitApp(ctk.CTk):
         self.lbl_img_raw = self.create_image_label(self.frame_visual, "3. Cleaned Circuit", 2)
         self.lbl_img_schematic = self.create_image_label(self.frame_visual, "4. Node Analysis", 3)
 
-    def setup_raw_view(self): #  UI สำหรับ Raw Data (Split View)
+    def setup_raw_view(self):
         self.frame_raw.grid_columnconfigure(0, weight=1)
-        self.frame_raw.grid_columnconfigure(1, weight=1) # 2 Columns
+        self.frame_raw.grid_columnconfigure(1, weight=1)
         self.frame_raw.grid_rowconfigure(1, weight=1)
 
-        # --- LEFT: YOLO ---
         ctk.CTkLabel(self.frame_raw, text=" YOLO Components", font=("Arial", 20, "bold")).grid(row=0, column=0, sticky="w", padx=20, pady=20)
         self.yolo_scroll = ctk.CTkScrollableFrame(self.frame_raw, label_text="Detected Components")
         self.yolo_scroll.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 20))
 
-        # --- RIGHT: OCR ---
         ctk.CTkLabel(self.frame_raw, text=" OCR Text", font=("Arial", 20, "bold")).grid(row=0, column=1, sticky="w", padx=20, pady=20)
         self.raw_scroll = ctk.CTkScrollableFrame(self.frame_raw, label_text="Detected Text Items")
         self.raw_scroll.grid(row=1, column=1, sticky="nsew", padx=10, pady=(0, 20))
         
-        # Init Headers
         self.refresh_yolo_header()
         self.refresh_raw_header()
 
@@ -197,21 +178,18 @@ class CircuitApp(ctk.CTk):
             row = ctk.CTkFrame(self.yolo_scroll)
             row.pack(fill="x", pady=2)
             
-            # Index
             ctk.CTkLabel(row, text=str(i+1), width=30).pack(side="left", padx=5)
             
-            # Name
             name = comp.get('name', 'Unknown')
             ctk.CTkEntry(row, placeholder_text=name).pack(side="left", padx=5, expand=True, fill="x")
             
-            # Confidence (ถ้า detector ส่งมาไม่ได้ จะแสดง -)
             conf = comp.get('conf', None)
             if conf is not None:
                 conf_val = conf * 100
                 conf_color = "#2ECC71" if conf_val > 80 else "#F1C40F"
                 conf_text = f"{conf_val:.1f}%"
             else:
-                conf_text = "-" # Detector ปัจจุบันอาจไม่ได้ส่งค่า conf มา
+                conf_text = "-" 
                 conf_color = "gray"
 
             ctk.CTkLabel(row, text=conf_text, width=100, text_color=conf_color).pack(side="right", padx=5)
@@ -310,30 +288,21 @@ class CircuitApp(ctk.CTk):
 
     def process_thread(self):
         try:
-            # 1. YOLO
             detect_plot, components = self.detector.detect(self.current_image_path)
             
             img = cv2.imread(self.current_image_path)
             
-            # --- START: MASKING FOR OCR (ถมขาวทับอุปกรณ์ก่อนส่ง OCR) ---
-            # สร้างภาพ copy เพื่อใช้สำหรับ OCR โดยเฉพาะ
             img_for_ocr = img.copy()
             for comp in components:
-                # เช็คว่ามี key 'box' และข้อมูลถูกต้อง
                 if 'box' in comp:
                     x1, y1, x2, y2 = map(int, comp['box'])
-                    # วาดสี่เหลี่ยมสีขาวทับตำแหน่งอุปกรณ์ (-1 คือถมเต็ม)
                     cv2.rectangle(img_for_ocr, (x1, y1), (x2, y2), (255, 255, 255), -1)
-            # --- END MASKING ---
 
-            # 2. OCR
             try:
-                # ส่ง img_for_ocr แทน img เพื่อให้ OCR อ่านเฉพาะตัวเลขบนพื้นขาว
                 full_ocr = self.ocr.ocr.ocr(img_for_ocr, cls=True) 
             except:
                 full_ocr = []
 
-            # สร้างภาพสำหรับ Visualization OCR
             ocr_vis_img = img.copy()
 
             formatted_ocr = []
@@ -344,18 +313,13 @@ class CircuitApp(ctk.CTk):
                     xs, ys = [p[0] for p in pts], [p[1] for p in pts]
                     x1, y1, x2, y2 = int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))
                     
-                    # เก็บข้อมูล
                     formatted_ocr.append({'text': text, 'box': [x1, y1, x2, y2], 'conf': line[1][1]})
                     
-                    # วาดลงภาพ Visualization (สีน้ำเงิน)
                     cv2.rectangle(ocr_vis_img, (x1, y1), (x2, y2), (255, 0, 0), 2)
                     cv2.putText(ocr_vis_img, text, (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
-            # 3. Process Logic
-            # ส่ง img ต้นฉบับ (ที่ยังมีอุปกรณ์และเส้นครบ) ไปให้ Logic ประมวลผลต่อ
             vis, final, netlist = self.processor.process_nodes(img, components, text_data=formatted_ocr)
             
-            #  Update: ส่ง components ไปด้วยเพื่อแสดงผล YOLO Raw Data
             self.after(0, lambda: self.update_ui_results(detect_plot, ocr_vis_img, vis, final, netlist, formatted_ocr, components))
 
         except Exception as e:
@@ -365,23 +329,17 @@ class CircuitApp(ctk.CTk):
             self.after(0, lambda: self.status_label.configure(text="Ready"))
 
     def update_ui_results(self, detect_img, ocr_img, raw_img, schematic_img, netlist_text, ocr_data, yolo_data):
-        # Update Images in Scrollable View
         self.show_image(detect_img, self.lbl_img_detect)
         self.show_image(ocr_img, self.lbl_img_ocr) 
         self.show_image(raw_img, self.lbl_img_raw)
         self.show_image(schematic_img, self.lbl_img_schematic)
         
-        # Update Analysis View
         self.show_image(schematic_img, self.lbl_img_analysis_view)
         self.populate_editor_from_text(netlist_text)
 
-        #  Update Raw Data View
         self.populate_raw_data(ocr_data)
         self.populate_yolo_data(yolo_data)
 
-    # ==========================
-    # Editor Logic
-    # ==========================
     def add_netlist_row(self, name, n1, n2, value, unit_val="Ohm", is_ai_generated=False):
         row_idx = len(self.netlist_rows) + 1 
         entries = {}
